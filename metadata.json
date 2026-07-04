@@ -1,0 +1,6 @@
+{
+  "name": "AetherFlow Architect Hub",
+  "description": "An interactive hub and prompt compiler for the AetherFlow IDE—a local-first, WebAssembly-powered visual statechart compiler and workflow simulator designed for senior frontend portfolios.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
