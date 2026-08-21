@@ -1,6 +1,6 @@
 /**
  * @license
- * SPDX-License-Identifier: Apache-2.0
+ * SPDX-License-Identifier: MIT
  */
 
 import { useState, FormEvent } from 'react';
@@ -78,7 +78,7 @@ export default function VersionControl({
   const branchCommits = getBranchCommits();
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-4" data-testid="version-control">
       {/* Panel header */}
       <div className="border-b border-white/5 pb-2">
         <h3 className="text-xs font-mono uppercase tracking-[0.15em] font-extrabold text-white flex items-center gap-2">

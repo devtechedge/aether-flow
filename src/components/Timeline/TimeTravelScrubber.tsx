@@ -1,6 +1,6 @@
 /**
  * @license
- * SPDX-License-Identifier: Apache-2.0
+ * SPDX-License-Identifier: MIT
  */
 
 import { Play, Pause, Square, SkipForward, Cpu, Trash2, ShieldCheck, Terminal, Disc, Zap } from 'lucide-react';
@@ -38,7 +38,7 @@ export default function TimeTravelScrubber({
   onScrubSnapshot
 }: TimeTravelScrubberProps) {
   return (
-    <div className="bg-[#121318] border border-white/5 rounded-2xl p-4 flex flex-col md:flex-row gap-5 h-full">
+    <div className="bg-[#121318] border border-white/5 rounded-2xl p-4 flex flex-col md:flex-row gap-5 h-full" data-testid="time-travel-scrubber">
       {/* VCR & Telemetry profiling panel (Left Side) */}
       <div className="flex flex-col justify-between md:w-[320px] shrink-0 border-r border-white/5 pr-0 md:pr-5 gap-4">
         {/* VCR Player Controls */}
@@ -57,6 +57,7 @@ export default function TimeTravelScrubber({
               </button>
             ) : (
               <button
+                data-testid="vcr-play"
                 onClick={onPlay}
                 className="flex items-center justify-center w-10 h-10 rounded-xl bg-[#ff4f12] text-white hover:bg-[#ff6a38] shadow-lg shadow-[#ff4f12]/10 cursor-pointer transition-all"
                 title="Run State Machine"
@@ -179,7 +180,7 @@ export default function TimeTravelScrubber({
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto bg-[#0d0e11] rounded-xl border border-white/5 p-3 font-mono text-[10px] space-y-1.5 timeline-scrollbar select-text selection:bg-[#ff4f12]/20">
+        <div data-testid="console-log" className="flex-1 overflow-y-auto bg-[#0d0e11] rounded-xl border border-white/5 p-3 font-mono text-[10px] space-y-1.5 timeline-scrollbar select-text selection:bg-[#ff4f12]/20">
           {logs.length === 0 ? (
             <div className="h-full flex items-center justify-center text-white/30 italic text-[9px] gap-1.5 font-serif">
               <Disc className="w-3.5 h-3.5 animate-spin text-[#ff4f12]/30" />

@@ -1,6 +1,6 @@
 /**
  * @license
- * SPDX-License-Identifier: Apache-2.0
+ * SPDX-License-Identifier: MIT
  */
 
 import { Play, Activity, Cpu, GitBranch, Mail, Folder, FileText, Sparkles, Plus } from 'lucide-react';
@@ -71,7 +71,7 @@ export default function NodePalette({ onAddNode }: NodePaletteProps) {
   ];
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-4" data-testid="node-palette">
       <div className="border-b border-white/5 pb-2">
         <h3 className="text-xs font-mono uppercase tracking-[0.15em] font-extrabold text-white">
           Workflow Node Registry
@@ -85,6 +85,7 @@ export default function NodePalette({ onAddNode }: NodePaletteProps) {
         {nodeTemplates.map((tpl) => (
           <button
             key={tpl.type}
+            data-testid={`palette-${tpl.type}`}
             onClick={() => onAddNode(tpl.type)}
             draggable={true}
             onDragStart={(e) => {

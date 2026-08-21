@@ -1,6 +1,6 @@
 /**
  * @license
- * SPDX-License-Identifier: Apache-2.0
+ * SPDX-License-Identifier: MIT
  */
 
 import { ChangeEvent } from 'react';
@@ -15,7 +15,7 @@ interface NodeInspectorProps {
 export default function NodeInspector({ node, onUpdateProperties }: NodeInspectorProps) {
   if (!node) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center text-center p-6 bg-white/[0.01] border border-white/5 rounded-2xl h-full">
+      <div className="flex-1 flex flex-col items-center justify-center text-center p-6 bg-white/[0.01] border border-white/5 rounded-2xl h-full" data-testid="node-inspector">
         <div className="p-3 bg-white/[0.02] rounded-full border border-white/5 text-white/30 mb-3 animate-pulse">
           <Sparkles className="w-6 h-6" />
         </div>
@@ -38,7 +38,7 @@ export default function NodeInspector({ node, onUpdateProperties }: NodeInspecto
   };
 
   return (
-    <div className="flex-1 flex flex-col gap-5 h-full overflow-y-auto pr-1">
+    <div className="flex-1 flex flex-col gap-5 h-full overflow-y-auto pr-1" data-testid="node-inspector">
       {/* Inspector Header */}
       <div className="border-b border-white/5 pb-3">
         <span className="text-[9px] font-mono text-[#ff4f12] uppercase tracking-[0.2em] font-extrabold block">

@@ -1,9 +1,9 @@
 /**
  * @license
- * SPDX-License-Identifier: Apache-2.0
+ * SPDX-License-Identifier: MIT
  */
 
-import { useState, useRef, useEffect, MouseEvent, WheelEvent, DragEvent } from 'react';
+import { useState, useRef, useMemo, MouseEvent, WheelEvent, DragEvent } from 'react';
 import { 
   Play, 
   Settings, 
@@ -19,6 +19,8 @@ import {
 } from 'lucide-react';
 import { GraphNode, GraphEdge, NodeType } from '../../types';
 import { screenToCanvas } from '../../utils/canvasMath';
+import { deletedNodes as findDeletedNodes, diffNode } from '../../utils/nodeDiff';
+import { canvasViewport, queryVisibleIds } from '../../utils/visibleNodes';
 
 interface GraphCanvasProps {
   nodes: GraphNode[];
@@ -90,24 +92,17 @@ export default function GraphCanvas({
   };
 
   // Branch Comparison (Visual Diffing) Engines
-  const getNodeDiffStatus = (node: GraphNode): 'added' | 'modified' | 'none' => {
-    if (!compareNodes) return 'none';
-    const original = compareNodes.find(cn => cn.id === node.id);
-    if (!original) return 'added';
+  const getNodeDiffStatus = (node: GraphNode) => diffNode(node, compareNodes);
 
-    const isMoved = Math.abs(original.x - node.x) > 2 || Math.abs(original.y - node.y) > 2;
-    const isLabelChanged = original.label !== node.label;
-    const isPropsChanged = JSON.stringify(original.properties) !== JSON.stringify(node.properties);
+  const deletedNodes = findDeletedNodes(nodes, compareNodes);
 
-    if (isMoved || isLabelChanged || isPropsChanged) {
-      return 'modified';
-    }
-    return 'none';
-  };
-
-  const deletedNodes = compareNodes 
-    ? compareNodes.filter(cn => !nodes.some(n => n.id === cn.id))
-    : [];
+  const visibleIds = useMemo(() => {
+    const width = containerRef.current?.clientWidth ?? 0;
+    const height = containerRef.current?.clientHeight ?? 0;
+    if (!width || !height) return new Set(nodes.map((n) => n.id));
+    const viewport = canvasViewport(pan.x, pan.y, zoom, width, height);
+    return new Set(queryVisibleIds(nodes, viewport));
+  }, [nodes, pan.x, pan.y, zoom]);
 
 
   // Get SVG connection path coordinate helpers
@@ -274,6 +269,7 @@ export default function GraphCanvas({
   return (
     <div 
       id="graph-canvas-container"
+      data-testid="graph-canvas"
       ref={containerRef}
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
@@ -388,7 +384,7 @@ export default function GraphCanvas({
           transformOrigin: '0 0'
         }}
       >
-        {nodes.map((node) => {
+        {nodes.filter((node) => visibleIds.has(node.id)).map((node) => {
           const isSelected = selectedNodeId === node.id;
           const isActive = activeNodeId === node.id;
           const width = node.width || 180;
@@ -592,7 +588,7 @@ export default function GraphCanvas({
       {/* Frame FPS profile badge */}
       <div className="absolute top-4 right-4 flex items-center gap-2 px-3 py-1 bg-white/[0.03] border border-white/5 rounded-full text-[10px] font-mono text-white/60">
         <Activity className="w-3.5 h-3.5 text-emerald-400" />
-        <span className="font-bold">WebGL Composite: Locked 120 FPS</span>
+        <span className="font-bold">SVG canvas · {nodes.length} nodes</span>
       </div>
 
       <style>{`

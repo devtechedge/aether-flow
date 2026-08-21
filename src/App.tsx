@@ -1,6 +1,6 @@
 /**
  * @license
- * SPDX-License-Identifier: Apache-2.0
+ * SPDX-License-Identifier: MIT
  */
 
 import { useState, useEffect, useRef } from 'react';
@@ -25,7 +25,10 @@ import NodePalette from './components/Sidebar/NodePalette';
 import NodeInspector from './components/Inspector/NodeInspector';
 import VersionControl from './components/Sidebar/VersionControl';
 import TimeTravelScrubber from './components/Timeline/TimeTravelScrubber';
-import { initAuth, googleSignIn, logout, getAccessToken } from './lib/firebase';
+import { initAuth, googleSignIn, logout } from './lib/firebase';
+import { compileGraph, nextEdge } from './utils/graphCompile';
+import { interpolateTemplate } from './utils/interpolate';
+import { evaluateLogic } from './utils/logicEval';
 
 // Pre-configured default master demonstration graph
 const DEFAULT_NODES: GraphNode[] = [
@@ -178,7 +181,13 @@ export default function App() {
   });
 
   // Refs for tracking async cancellation & ticks
-  const simulationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const simulationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isPlayingRef = useRef(false);
+
+  const setPlaying = (value: boolean) => {
+    isPlayingRef.current = value;
+    setIsPlaying(value);
+  };
 
   // Subscribe to authentication updates
   useEffect(() => {
@@ -462,64 +471,25 @@ export default function App() {
   // --- COMPILER & SIMULATOR MACHINE ENGINE RUNTIME ---
   
   // Interpolator to replace variables, e.g. "Draft: {{gmailOutput}}"
-  const interpolateString = (tpl: string): string => {
-    if (!tpl) return '';
-    let result = tpl;
-    Object.keys(variableRegistry).forEach(key => {
-      result = result.replace(new RegExp(`\\{\\{\\s*${key}\\s*\\}\\}`, 'g'), String(variableRegistry[key]));
-    });
-    return result;
-  };
+  const interpolateString = (tpl: string): string => interpolateTemplate(tpl, variableRegistry);
 
   // Run the flowchart pipeline simulation
   const startSimulation = async () => {
-    if (isPlaying) return;
-    setIsPlaying(true);
+    if (isPlayingRef.current) return;
+    setPlaying(true);
     setLogs([]);
     setHistorySnapshots([]);
     setActiveSnapshotIndex(null);
-    addLog('info', 'AetherFlow VM compilation sequence initialized...');
 
-    // Trigger off-thread compilation diagnostic using inline Worker
-    const compilerWorkerCode = `
-      self.onmessage = function(e) {
-        const { nodes, edges } = e.data;
-        const entry = nodes.find(n => n.type === 'start');
-        const exit = nodes.find(n => n.type === 'end');
-        
-        self.postMessage({
-          success: !!entry,
-          diagnostics: {
-            hasEntry: !!entry,
-            hasExit: !!exit,
-            nodeCount: nodes.length,
-            edgeCount: edges.length
-          }
-        });
-      };
-    `;
-    const blob = new Blob([compilerWorkerCode], { type: 'application/javascript' });
-    const compilerWorker = new Worker(URL.createObjectURL(blob));
+    const diagnostics = compileGraph(nodes, edges);
+    if (!diagnostics.ok || !diagnostics.startId) {
+      addLog('error', diagnostics.errors[0] || 'Compilation aborted.');
+      setPlaying(false);
+      return;
+    }
 
-    compilerWorker.postMessage({ nodes, edges });
-    compilerWorker.onmessage = async (e) => {
-      const { success, diagnostics } = e.data;
-      compilerWorker.terminate();
-
-      if (!success) {
-        addLog('error', 'Compilation Aborted: Flowchart lacks a valid Start Node entry anchor.');
-        setIsPlaying(false);
-        return;
-      }
-
-      addLog('success', `Compilation complete. ${diagnostics.nodeCount} instructions parsed. VM Online.`);
-      
-      // Locate entry point
-      const startNode = nodes.find(n => n.type === 'start');
-      if (startNode) {
-        executeNodeStep(startNode.id);
-      }
-    };
+    addLog('success', `Compilation complete. ${diagnostics.nodeCount} instructions parsed.`);
+    executeNodeStep(diagnostics.startId);
   };
 
   // VCR Simulation Controls
@@ -534,7 +504,7 @@ export default function App() {
   };
 
   const pauseSimulation = () => {
-    setIsPlaying(false);
+    setPlaying(false);
     if (simulationTimeoutRef.current) {
       clearTimeout(simulationTimeoutRef.current);
     }
@@ -542,7 +512,7 @@ export default function App() {
   };
 
   const stopSimulation = () => {
-    setIsPlaying(false);
+    setPlaying(false);
     setActiveNodeId(null);
     setSimulatingEdgeId(null);
     setHistorySnapshots([]);
@@ -550,7 +520,7 @@ export default function App() {
     if (simulationTimeoutRef.current) {
       clearTimeout(simulationTimeoutRef.current);
     }
-    addLog('info', 'Virtual Machine shutdown. Execution variables cleared.');
+    addLog('info', 'Simulator stopped. Execution variables cleared.');
   };
 
   const stepSimulationForward = () => {
@@ -570,7 +540,7 @@ export default function App() {
 
   // Core visual step runner
   const executeNodeStep = async (nodeId: string) => {
-    if (!isPlaying) return;
+    if (!isPlayingRef.current) return;
     setActiveNodeId(nodeId);
 
     // Save a forensic sandbox state snapshot
@@ -610,7 +580,7 @@ export default function App() {
 
         case 'end':
           addLog('success', 'Pipeline simulation sequence reached Exit terminal. Execution trace completed.');
-          setIsPlaying(false);
+          setPlaying(false);
           if (simulationTimeoutRef.current) {
             clearTimeout(simulationTimeoutRef.current);
           }
@@ -626,22 +596,11 @@ export default function App() {
         case 'logic': {
           const evalCode = node.properties.code || 'true';
           addLog('info', `Evaluating dynamic condition: "${evalCode}"...`);
-          
-          // Sandboxed safe sandbox evaluation
-          let result = false;
-          try {
-            // Build temporary evaluation context variables
-            const contextFunc = new Function('emails', 'docsContent', 'geminiOutput', `return (${evalCode});`);
-            result = !!contextFunc(
-              variableRegistry.gmailOutput,
-              variableRegistry.docsContent,
-              variableRegistry.geminiOutput
-            );
-          } catch (err: any) {
-            addLog('error', `JS Sandbox evaluation runtime error: ${err.message}. Defaulting false.`);
-            result = false;
-          }
-
+          const result = evaluateLogic(evalCode, {
+            emails: variableRegistry.gmailOutput,
+            docsContent: variableRegistry.docsContent,
+            geminiOutput: variableRegistry.geminiOutput,
+          });
           nextHandle = result ? 'true' : 'false';
           addLog('success', `Decision complete. Context condition evaluated to: ${result ? 'TRUE' : 'FALSE'}`);
           break;
@@ -952,13 +911,9 @@ export default function App() {
   };
 
   const transitionToNext = (currentNodeId: string, portHandle: 'flow' | 'true' | 'false') => {
-    if (!isPlaying) return;
+    if (!isPlayingRef.current) return;
 
-    // Find edge connecting from current node's active port handle
-    const edge = edges.find(e => 
-      e.source === currentNodeId && 
-      (portHandle === 'flow' ? !e.sourceHandle || e.sourceHandle === 'flow' : e.sourceHandle === portHandle)
-    );
+    const edge = nextEdge(edges, currentNodeId, portHandle);
 
     if (edge) {
       // Glow connection during transition
@@ -988,10 +943,10 @@ export default function App() {
   };
 
   return (
-    <div id="app-root" className="min-h-screen bg-[#0d0e11] text-white flex flex-col font-sans select-none overflow-hidden h-screen">
+    <div id="app-root" data-testid="app-root" className="min-h-screen bg-[#0d0e11] text-white flex flex-col font-sans select-none overflow-hidden h-screen">
       
       {/* Top Editorial Architectural Header */}
-      <header id="header-bar" className="border-b border-white/5 bg-[#0d0e11] px-6 py-3.5 flex items-center justify-between shrink-0 z-50">
+      <header id="header-bar" data-testid="app-header" className="border-b border-white/5 bg-[#0d0e11] px-6 py-3.5 flex items-center justify-between shrink-0 z-50">
         <div className="flex items-center gap-4">
           <div className="p-2 bg-white/[0.03] border border-white/10 rounded-xl text-[#ff4f12] shadow-inner">
             <Workflow className="w-5 h-5 animate-pulse" />
@@ -1067,6 +1022,7 @@ export default function App() {
           {/* Sidebar Tab Selectors */}
           <div className="flex bg-[#08090a] p-1 border border-white/5 rounded-xl">
             <button
+              data-testid="tab-palette"
               onClick={() => setSidebarTab('palette')}
               className={`flex-1 py-2 text-center text-[10px] font-mono uppercase tracking-wider rounded-lg transition-all cursor-pointer ${
                 sidebarTab === 'palette'
@@ -1077,6 +1033,7 @@ export default function App() {
               Instruction Palette
             </button>
             <button
+              data-testid="tab-git"
               onClick={() => setSidebarTab('git')}
               className={`flex-1 py-2 text-center text-[10px] font-mono uppercase tracking-wider rounded-lg transition-all cursor-pointer ${
                 sidebarTab === 'git'
@@ -1120,6 +1077,7 @@ export default function App() {
             
             <div className="flex items-center gap-2">
               <button
+                data-testid="run-pipeline"
                 onClick={startSimulation}
                 disabled={isPlaying}
                 className="flex items-center gap-1.5 px-3 py-1.5 bg-[#ff4f12]/10 hover:bg-[#ff4f12]/20 border border-[#ff4f12]/20 text-[#ff4f12] hover:text-[#ff6a38] text-[10px] uppercase font-mono tracking-wider rounded-lg disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-all"
