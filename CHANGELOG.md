@@ -8,7 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [2.0.0] - 2026-08-21
 ### Added
-- Hiring-manager README, MIT license, branded favicon, CI (Vitest + `tsc` + Playwright), Dependabot, and `SECURITY.md`.
+- Product README, MIT license, branded favicon, CI (Vitest + `tsc` + Playwright), Dependabot, and `SECURITY.md`.
 - Pure graph helpers: compile checks, template interpolate, node diff, quadtree viewport cull, logic-eval cap.
 - Vercel static deploy plus `POST /api/gemini/generate` (optional key; mock fallback).
 

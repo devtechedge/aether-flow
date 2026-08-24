@@ -92,7 +92,7 @@ const DEFAULT_NODES: GraphNode[] = [
     height: 90,
     properties: {
       gmailAction: 'draft',
-      gmailTo: 'recruiters@example.com',
+      gmailTo: 'team@example.com',
       gmailSubject: 'AetherFlow Auto-Response Draft',
       gmailBody: 'Hi Team,\n\nHere is the AI compiled scheduling outline:\n\n{{geminiOutput}}\n\nWarm regards,\nAetherFlow Agent'
     }
@@ -649,7 +649,7 @@ export default function App() {
                   addLog('info', `Gmail search returned empty results.`);
                 }
               } else if (action === 'draft' || action === 'send') {
-                const rawTo = node.properties.gmailTo || 'recruiters@example.com';
+                const rawTo = node.properties.gmailTo || 'team@example.com';
                 const rawSubject = node.properties.gmailSubject || 'AetherFlow AI dispatch';
                 const rawBody = interpolateString(node.properties.gmailBody || 'Sent from AetherFlow IDE.');
 
