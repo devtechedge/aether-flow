@@ -24,6 +24,10 @@ This is the **only** public repo for the project.
 
 ## Screenshots
 
+<p align="center">
+  <img src="docs/social-preview.png" alt="AetherFlow" width="800">
+</p>
+
 | Canvas | Run |
 |--------|-----|
 | ![Default pipeline on the canvas](docs/screenshots/01-canvas-overview.png) | ![Compile & run with live console](docs/screenshots/02-pipeline-run.png) |
