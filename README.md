@@ -16,6 +16,8 @@ Local-first visual flowchart IDE. Drag nodes onto a custom pan/zoom canvas, comp
 
 **https://aetherflow-ide.vercel.app**
 
+Do **not** use https://aether-flow.vercel.app — that hostname is paused and is not this project.
+
 > **Status:** The live site is a **client-side demo**. Graphs persist in `localStorage`. Gmail / Drive / Docs nodes use mock payloads unless you sign in locally with Firebase env vars. Gemini calls hit `/api/gemini/generate` and fall back to a canned reply when `GEMINI_API_KEY` is unset.
 
 This is the **only** public repo for the project.
