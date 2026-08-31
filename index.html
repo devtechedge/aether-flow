@@ -9,6 +9,9 @@
       content="AetherFlow — local-first visual flowchart IDE. Drag nodes, compile a graph, and run a sandboxed simulator with time-travel snapshots."
     />
     <title>AetherFlow IDE</title>
+    <script>
+      (function(){try{var k="aether-flow-theme";var t=localStorage.getItem(k);if(t!=="light"&&t!=="dark")t="dark";var r=document.documentElement;r.setAttribute("data-theme",t);r.style.colorScheme=t;if(t==="dark")r.classList.add("dark");else r.classList.remove("dark");}catch(e){document.documentElement.setAttribute("data-theme","dark");}})();
+    </script>
   </head>
   <body>
     <div id="root"></div>

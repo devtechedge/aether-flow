@@ -25,6 +25,7 @@ import NodePalette from './components/Sidebar/NodePalette';
 import NodeInspector from './components/Inspector/NodeInspector';
 import VersionControl from './components/Sidebar/VersionControl';
 import TimeTravelScrubber from './components/Timeline/TimeTravelScrubber';
+import ThemeToggle from './components/ThemeToggle';
 import { initAuth, googleSignIn, logout } from './lib/firebase';
 import { compileGraph, nextEdge } from './utils/graphCompile';
 import { interpolateTemplate } from './utils/interpolate';
@@ -1011,6 +1012,7 @@ export default function App() {
           >
             <Download className="w-3.5 h-3.5" /> Backup Schema
           </button>
+          <ThemeToggle />
         </div>
       </header>
 
