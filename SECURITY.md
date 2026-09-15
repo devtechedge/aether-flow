@@ -1,4 +1,4 @@
-# Security Assessment — AetherFlow
+# Security Assessment - AetherFlow
 
 **Date:** 2026-09-06  
 **Scope:** Auth, XSS, injection, CORS, secrets, third-party APIs  
@@ -19,9 +19,9 @@
 | CORS | **N/A** | Same-origin Vite app + `/api/gemini/generate`. |
 | Payments | **N/A** | No payments. |
 
-**Overall (public Vercel demo):** Low residual risk — mock Workspace/Gemini, no backend secrets required, no auth boundary to break.
+**Overall (public Vercel demo):** Low residual risk - mock Workspace/Gemini, no backend secrets required, no auth boundary to break.
 
-**Overall (if Gemini + Google Workspace keys are live):** Medium — the Gemini proxy must stay server-side; Google OAuth tokens stay in memory; logic-node `Function` is still not a sandbox.
+**Overall (if Gemini + Google Workspace keys are live):** Medium - the Gemini proxy must stay server-side; Google OAuth tokens stay in memory; logic-node `Function` is still not a sandbox.
 
 ---
 
@@ -60,11 +60,11 @@
 | Path | Auth | Notes |
 |------|------|--------|
 | `POST /api/gemini/generate` | None | Requires `GEMINI_API_KEY` in the server env. Prompt clipped to 8k chars. |
-| Missing key | — | Returns **503**; the client falls back to a mock string. |
+| Missing key | - | Returns **503**; the client falls back to a mock string. |
 
 The public Vercel project may ship **without** `GEMINI_API_KEY`. That is the documented demo path.
 
-Do not put the key in `VITE_*` — it would leak to the browser.
+Do not put the key in `VITE_*` - it would leak to the browser.
 
 ---
 
@@ -88,7 +88,7 @@ Do not put the key in `VITE_*` — it would leak to the browser.
 ## 7. Dependency / supply chain
 
 **This pass**
-- Dropped unused `motion` (Framer) — never imported.
+- Dropped unused `motion` (Framer) - never imported.
 - No Prisma, NextAuth, z.ai SDK, or Testing Library tree.
 - Quadtree / compile / interpolate helpers are unit-tested.
 

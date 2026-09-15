@@ -4,11 +4,11 @@ import { interpolateTemplate } from './interpolate';
 describe('interpolateTemplate', () => {
   it('replaces mustache tokens from the registry', () => {
     expect(
-      interpolateTemplate('Hello {{ name }} — {{gmailOutput}}', {
+      interpolateTemplate('Hello {{ name }} - {{gmailOutput}}', {
         name: 'Ada',
         gmailOutput: 'inbox empty',
       })
-    ).toBe('Hello Ada — inbox empty');
+    ).toBe('Hello Ada - inbox empty');
   });
 
   it('drops unknown tokens instead of leaving braces', () => {

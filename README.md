@@ -16,7 +16,7 @@ Local-first visual flowchart IDE. Drag nodes onto a custom pan/zoom canvas, comp
 
 **https://aetherflow-ide.vercel.app**
 
-Do **not** use https://aether-flow.vercel.app — that hostname is paused and is not this project.
+Do **not** use https://aether-flow.vercel.app - that hostname is paused and is not this project.
 
 > **Status:** The live site is a **client-side demo**. Graphs persist in `localStorage`. Gmail / Drive / Docs nodes use mock payloads unless you sign in locally with Firebase env vars. Gemini calls hit `/api/gemini/generate` and fall back to a canned reply when `GEMINI_API_KEY` is unset.
 
@@ -59,11 +59,11 @@ This is the **only** public repo for the project.
 | Frontend | React 19, Vite 6, TypeScript, Tailwind 4 |
 | Canvas | SVG + DOM cards, quadtree cull |
 | Persistence | `localStorage` (not IndexedDB) |
-| Auth | Optional Firebase Google popup — mock mode by default |
+| Auth | Optional Firebase Google popup - mock mode by default |
 | AI | Optional `POST /api/gemini/generate` (Gemini 2.5). Mock fallback on Vercel |
 | Local server | Express + Vite middleware (`tsx server.ts`) |
 | Hosting | Vercel (static Vite + serverless `/api`) |
-| CI | GitHub Actions — Vitest, `tsc`, Playwright |
+| CI | GitHub Actions - Vitest, `tsc`, Playwright |
 
 ---
 
@@ -77,7 +77,7 @@ cp .env.example .env
 npm run dev
 ```
 
-Open **http://localhost:3000**. Gemini and Google sign-in are optional — the default pipeline runs on mock data.
+Open **http://localhost:3000**. Gemini and Google sign-in are optional - the default pipeline runs on mock data.
 
 ```bash
 npm test
