@@ -9,14 +9,8 @@ import {
   Download, 
   Cpu, 
   Layers, 
-  Check, 
   GitBranch, 
-  Sparkles,
   User as UserIcon,
-  LogOut,
-  Terminal,
-  Activity,
-  Play
 } from 'lucide-react';
 
 import { GraphNode, GraphEdge, Commit, Branch, LogEntry, TelemetryData, NodeType, ExecutionSnapshot } from './types';
@@ -26,7 +20,8 @@ import NodeInspector from './components/Inspector/NodeInspector';
 import VersionControl from './components/Sidebar/VersionControl';
 import TimeTravelScrubber from './components/Timeline/TimeTravelScrubber';
 import ThemeToggle from './components/ThemeToggle';
-import { initAuth, googleSignIn, logout } from './lib/firebase';
+import { initAuth, googleSignIn, logout, firebaseEnabled } from './lib/firebase';
+import ViewportLock from './components/ViewportLock';
 import { compileGraph, nextEdge } from './utils/graphCompile';
 import { interpolateTemplate } from './utils/interpolate';
 import { evaluateLogic } from './utils/logicEval';
@@ -149,6 +144,7 @@ export default function App() {
 
   // Sidebar navigation tab selector
   const [sidebarTab, setSidebarTab] = useState<'palette' | 'git'>('palette');
+  const [mobilePanel, setMobilePanel] = useState<'none' | 'left' | 'right'>('none');
 
   // Comparison branch state
   const [compareBranch, setCompareBranch] = useState<string | null>(null);
@@ -274,13 +270,19 @@ export default function App() {
 
   // Google sign in / sign out click triggers
   const handleSignIn = async () => {
+    if (!firebaseEnabled) {
+      addLog('error', 'Google sign-in is not configured on this deployment. Set VITE_FIREBASE_* env vars on Vercel and redeploy.');
+      return;
+    }
     try {
-      addLog('info', 'Opening secure Google Authentication OAuth popup window...');
+      addLog('info', 'Opening Google sign-in…');
       const result = await googleSignIn();
       if (result) {
         setUser(result.user);
         setAccessToken(result.accessToken);
         addLog('success', `Welcome ${result.user.displayName}! Access token compiled and loaded.`);
+      } else {
+        addLog('info', 'Continuing Google sign-in in this window…');
       }
     } catch (err: any) {
       addLog('error', `Authentication flow aborted: ${err.message || err}`);
@@ -943,111 +945,95 @@ export default function App() {
     addLog('success', `Downloaded pipeline flowchart config as JSON.`);
   };
 
+  const tabClass = (active: boolean) =>
+    `flex-1 rounded-lg py-2 text-center text-[10px] font-semibold uppercase tracking-wider ${
+      active ? 'bg-surface text-accent shadow-[inset_0_0_0_1px_var(--line)]' : 'text-subtle hover:text-fg'
+    }`;
+
   return (
-    <div id="app-root" data-testid="app-root" className="min-h-screen bg-[#0d0e11] text-white flex flex-col font-sans select-none overflow-hidden h-screen">
-      
-      {/* Top Editorial Architectural Header */}
-      <header id="header-bar" data-testid="app-header" className="border-b border-white/5 bg-[#0d0e11] px-6 py-3.5 flex items-center justify-between shrink-0 z-50">
-        <div className="flex items-center gap-4">
-          <div className="p-2 bg-white/[0.03] border border-white/10 rounded-xl text-[#ff4f12] shadow-inner">
-            <Workflow className="w-5 h-5 animate-pulse" />
+    <div id="app-root" data-testid="app-root" className="ide select-none">
+      <ViewportLock />
+      <header id="header-bar" data-testid="app-header" className="ide-header">
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="grid size-9 place-items-center rounded-xl bg-well text-accent shadow-[inset_0_0_0_1px_var(--line-strong)]">
+            <Workflow className="size-5" />
           </div>
-          <div>
+          <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <span className="text-[9px] uppercase tracking-[0.25em] font-extrabold text-white/40">CHIEF ARCHITECT LABS</span>
-              <span className="px-1.5 py-0.5 bg-[#ff4f12]/15 text-[8px] font-mono font-black text-[#ff4f12] uppercase tracking-wider rounded">Offline Resilient</span>
+              <span className="text-[9px] font-semibold uppercase tracking-[0.25em] text-subtle">
+                Chief Architect Labs
+              </span>
+              <span className="hidden rounded bg-accent/15 px-1.5 py-0.5 text-[8px] font-semibold uppercase tracking-wider text-accent sm:inline">
+                Offline Resilient
+              </span>
             </div>
-            <h1 className="text-sm font-black font-serif italic uppercase tracking-wider text-white">
-              AetherFlow IDE
-            </h1>
+            <h1 className="text-sm font-semibold uppercase tracking-wider">AetherFlow IDE</h1>
           </div>
         </div>
 
-        {/* Dynamic Branch badge */}
-        <div className="hidden lg:flex items-center gap-2.5 px-3 py-1.5 bg-white/[0.02] border border-white/5 rounded-xl font-mono text-[10px] text-white/60">
-          <GitBranch className="w-3.5 h-3.5 text-[#ff4f12]" />
-          <span>Branch: <strong className="text-white">refs/heads/{currentBranch}</strong></span>
+        <div className="ide-wide items-center gap-2 rounded-xl border border-line bg-well px-3 py-1.5 text-[10px] text-muted">
+          <GitBranch className="size-3.5 text-accent" />
+          <span>
+            Branch: <strong className="text-fg">refs/heads/{currentBranch}</strong>
+          </span>
         </div>
 
-        {/* Google sign-in workflow buttons */}
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            className="ide-dock ide-dock-palette"
+            onClick={() => setMobilePanel((p) => (p === 'left' ? 'none' : 'left'))}
+          >
+            <Layers className="size-4" />
+            <span className="hidden sm:inline">Palette</span>
+          </button>
           {authLoading ? (
-            <span className="text-[10px] font-mono text-white/40 animate-pulse">Syncing Cloud...</span>
+            <span className="text-[10px] text-subtle">Syncing…</span>
           ) : user ? (
-            <div className="flex items-center gap-3">
-              {/* User profile picture */}
-              <div className="flex items-center gap-2.5 bg-white/[0.02] border border-white/5 rounded-full pr-3 pl-1 py-1">
-                {user.photoURL ? (
-                  <img referrerPolicy="no-referrer" src={user.photoURL} alt={user.displayName} className="w-6 h-6 rounded-full border border-white/10" />
-                ) : (
-                  <div className="w-6 h-6 rounded-full bg-[#ff4f12]/20 border border-[#ff4f12]/30 flex items-center justify-center text-[10px] text-[#ff4f12] font-mono">
-                    U
-                  </div>
-                )}
-                <span className="text-xs font-mono font-bold max-w-[100px] truncate">{user.displayName?.split(' ')[0]}</span>
-              </div>
-              <button 
-                onClick={handleSignOut}
-                className="p-2 bg-white/5 border border-white/10 hover:border-white/20 rounded-xl text-white/60 hover:text-white transition-all cursor-pointer"
-                title="Log Out Cloud Sync"
-              >
-                <LogOut className="w-4 h-4" />
+            <div className="auth-chip text-xs font-medium text-fg">
+              {user.photoURL ? (
+                <img referrerPolicy="no-referrer" src={user.photoURL} alt={user.displayName || 'User'} />
+              ) : (
+                <div className="grid size-6 place-items-center rounded-full bg-accent/20 text-[10px] text-accent">
+                  {(user.displayName || 'U').slice(0, 1)}
+                </div>
+              )}
+              <span>{user.displayName?.split(' ')[0]}</span>
+              <button type="button" onClick={handleSignOut} title="Log out">
+                Sign out
               </button>
             </div>
           ) : (
             <button
+              type="button"
               onClick={handleSignIn}
-              className="flex items-center gap-2 px-4 py-2 bg-white text-black hover:bg-white/90 text-xs font-bold rounded-xl transition-all shadow-md hover:shadow-white/5 font-sans cursor-pointer"
+              className="flex items-center gap-2 rounded-xl bg-accent px-4 py-2 text-xs font-semibold text-accent-fg hover:opacity-90"
             >
-              <UserIcon className="w-3.5 h-3.5" /> Sign in with Google
+              <UserIcon className="size-3.5" /> Sign in with Google
             </button>
           )}
-
-          <div className="h-6 w-px bg-white/10 hidden md:block" />
-
-          {/* Download JSON pipeline configuration */}
-          <button 
+          <button
+            type="button"
             onClick={downloadBlueprintFile}
-            className="hidden md:flex items-center gap-1.5 px-3.5 py-2 bg-white/[0.02] hover:bg-white/[0.05] border border-white/10 hover:border-white/20 text-xs text-white/90 font-bold rounded-xl transition-all cursor-pointer"
+            className="hidden items-center gap-1.5 rounded-xl border border-line bg-well px-3.5 py-2 text-xs font-semibold text-fg hover:border-line-strong md:flex"
           >
-            <Download className="w-3.5 h-3.5" /> Backup Schema
+            <Download className="size-3.5" /> Backup Schema
           </button>
           <ThemeToggle />
         </div>
       </header>
 
-      {/* Primary Workspace Panels Layout */}
-      <div className="flex-1 flex overflow-hidden min-h-0 bg-[#08090a]">
-        
-        {/* Left Column: Palette Registry vs Version History Ledger (320px) */}
-        <aside className="w-[320px] shrink-0 border-r border-white/5 bg-[#0d0e11] flex flex-col p-4 gap-4 z-20">
-          {/* Sidebar Tab Selectors */}
-          <div className="flex bg-[#08090a] p-1 border border-white/5 rounded-xl">
-            <button
-              data-testid="tab-palette"
-              onClick={() => setSidebarTab('palette')}
-              className={`flex-1 py-2 text-center text-[10px] font-mono uppercase tracking-wider rounded-lg transition-all cursor-pointer ${
-                sidebarTab === 'palette'
-                  ? 'bg-white/5 text-[#ff4f12] font-bold border border-white/5'
-                  : 'text-white/40 hover:text-white'
-              }`}
-            >
+      <div className="ide-body">
+        <aside className={`ide-rail ide-rail-left ${mobilePanel === 'left' ? 'is-open' : ''}`}>
+          <div className="flex rounded-xl border border-line bg-well p-1">
+            <button type="button" data-testid="tab-palette" onClick={() => setSidebarTab('palette')} className={tabClass(sidebarTab === 'palette')}>
               Instruction Palette
             </button>
-            <button
-              data-testid="tab-git"
-              onClick={() => setSidebarTab('git')}
-              className={`flex-1 py-2 text-center text-[10px] font-mono uppercase tracking-wider rounded-lg transition-all cursor-pointer ${
-                sidebarTab === 'git'
-                  ? 'bg-white/5 text-[#ff4f12] font-bold border border-white/5'
-                  : 'text-white/40 hover:text-white'
-              }`}
-            >
+            <button type="button" data-testid="tab-git" onClick={() => setSidebarTab('git')} className={tabClass(sidebarTab === 'git')}>
               Version Control
             </button>
           </div>
-
-          <div className="flex-1 overflow-y-auto pr-1 select-none">
+          <div className="min-h-0 flex-1 overflow-y-auto pr-1">
             {sidebarTab === 'palette' ? (
               <NodePalette onAddNode={handleAddNode} />
             ) : (
@@ -1065,32 +1051,37 @@ export default function App() {
           </div>
         </aside>
 
-        {/* Central Core: Interactive Graph Canvas Area */}
-        <section className="flex-1 flex flex-col relative overflow-hidden min-h-0">
-          
-          {/* Header bar actions for pipeline execution */}
-          <div className="px-5 py-2.5 bg-[#0d0e11] border-b border-white/5 flex items-center justify-between shrink-0 z-10">
-            <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-[#ff4f12] animate-pulse"></span>
-              <span className="text-[10px] font-mono text-white/50 uppercase tracking-widest leading-none">
-                Active Compiler Engine Core: Ready
+        <section className="ide-stage">
+          <div className="ide-stage-bar">
+            <div className="flex min-w-0 items-center gap-2">
+              <span className="size-2 shrink-0 animate-pulse rounded-full bg-accent" />
+              <span className="truncate text-[10px] font-semibold uppercase tracking-widest text-muted">
+                <span className="ide-status-short">Engine ready</span>
+                <span className="ide-status-full">Compiler engine ready</span>
               </span>
             </div>
-            
-            <div className="flex items-center gap-2">
+            <div className="flex shrink-0 items-center gap-2">
               <button
-                data-testid="run-pipeline"
-                onClick={startSimulation}
-                disabled={isPlaying}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-[#ff4f12]/10 hover:bg-[#ff4f12]/20 border border-[#ff4f12]/20 text-[#ff4f12] hover:text-[#ff6a38] text-[10px] uppercase font-mono tracking-wider rounded-lg disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-all"
+                type="button"
+                className="ide-dock ide-dock-inspector"
+                onClick={() => setMobilePanel((p) => (p === 'right' ? 'none' : 'right'))}
               >
-                <Cpu className="w-3.5 h-3.5" /> Compile & Run Pipeline
+                Inspector
+              </button>
+              <button
+                type="button"
+                data-testid="run-pipeline"
+                onClick={() => void startSimulation()}
+                disabled={isPlaying}
+                className="flex items-center gap-1.5 rounded-lg border border-accent/20 bg-accent/10 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-accent disabled:opacity-40"
+              >
+                <Cpu className="size-3.5" />
+                <span className="ide-status-short">Run</span>
+                <span className="ide-status-full">Run pipeline</span>
               </button>
             </div>
           </div>
-
-          {/* Interactive Node Graph Viewer */}
-          <div className="flex-1 relative min-h-0">
+          <div className="ide-stage-canvas">
             <GraphCanvas
               nodes={nodes}
               edges={edges}
@@ -1108,18 +1099,24 @@ export default function App() {
           </div>
         </section>
 
-        {/* Right Column: Properties Inspector Panel (320px) */}
-        <aside className="w-[320px] shrink-0 border-l border-white/5 bg-[#0d0e11] flex flex-col p-4 z-20 overflow-hidden">
+        <aside className={`ide-rail ide-rail-right ${mobilePanel === 'right' ? 'is-open' : ''}`}>
           <NodeInspector
             node={nodes.find(n => n.id === selectedNodeId) || null}
             onUpdateProperties={handleUpdateProperties}
           />
         </aside>
 
+        {mobilePanel !== 'none' && (
+          <button
+            type="button"
+            className="ide-scrim"
+            aria-label="Close panel"
+            onClick={() => setMobilePanel('none')}
+          />
+        )}
       </div>
 
-      {/* Bottom Tray Panel: Simulation Controllers & Telemetry Logger Console (220px) */}
-      <footer className="h-[220px] border-t border-white/5 bg-[#0d0e11] p-4 shrink-0 z-30">
+      <footer className="ide-deck">
         <TimeTravelScrubber
           logs={logs}
           onClearLogs={() => setLogs([])}
@@ -1136,7 +1133,6 @@ export default function App() {
           onScrubSnapshot={handleScrubSnapshot}
         />
       </footer>
-
     </div>
   );
 }

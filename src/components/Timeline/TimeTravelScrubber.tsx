@@ -1,10 +1,5 @@
-/**
- * @license
- * SPDX-License-Identifier: MIT
- */
-
-import { Play, Pause, Square, SkipForward, Cpu, Trash2, ShieldCheck, Terminal, Disc, Zap } from 'lucide-react';
-import { LogEntry, TelemetryData, ExecutionSnapshot } from '../../types';
+import { Play, Pause, Square, SkipForward, Cpu, Trash2, ShieldCheck, Terminal, Disc } from "lucide-react";
+import type { ExecutionSnapshot, LogEntry, TelemetryData } from "../../types";
 
 interface TimeTravelScrubberProps {
   logs: LogEntry[];
@@ -35,192 +30,143 @@ export default function TimeTravelScrubber({
   telemetry,
   historySnapshots = [],
   activeSnapshotIndex = null,
-  onScrubSnapshot
+  onScrubSnapshot,
 }: TimeTravelScrubberProps) {
+  const vcrBtn =
+    "flex size-9 items-center justify-center rounded-xl border border-line bg-well text-fg hover:border-line-strong";
+
   return (
-    <div className="bg-[#121318] border border-white/5 rounded-2xl p-4 flex flex-col md:flex-row gap-5 h-full" data-testid="time-travel-scrubber">
-      {/* VCR & Telemetry profiling panel (Left Side) */}
-      <div className="flex flex-col justify-between md:w-[320px] shrink-0 border-r border-white/5 pr-0 md:pr-5 gap-4">
-        {/* VCR Player Controls */}
-        <div>
-          <span className="text-[10px] font-mono uppercase text-white/40 block mb-2.5">
-            Simulation Controller
-          </span>
-          <div className="flex items-center gap-2">
-            {isPlaying ? (
-              <button
-                onClick={onPause}
-                className="flex items-center justify-center w-10 h-10 rounded-xl bg-white/5 border border-white/10 hover:border-white/30 text-white cursor-pointer hover:bg-white/[0.08] transition-all"
-                title="Pause Execution"
-              >
-                <Pause className="w-4 h-4" />
-              </button>
-            ) : (
-              <button
-                data-testid="vcr-play"
-                onClick={onPlay}
-                className="flex items-center justify-center w-10 h-10 rounded-xl bg-[#ff4f12] text-white hover:bg-[#ff6a38] shadow-lg shadow-[#ff4f12]/10 cursor-pointer transition-all"
-                title="Run State Machine"
-              >
-                <Play className="w-4 h-4 fill-current" />
-              </button>
-            )}
-
+    <div className="ide-vcr" data-testid="time-travel-scrubber">
+      <div className="ide-vcr-transport">
+        {isPlaying ? (
+          <button type="button" onClick={onPause} className={vcrBtn} title="Pause Execution">
+            <Pause className="size-4" />
+          </button>
+        ) : (
+          <button
+            type="button"
+            data-testid="vcr-play"
+            onClick={onPlay}
+            className="flex size-9 items-center justify-center rounded-xl bg-accent text-accent-fg"
+            title="Run State Machine"
+          >
+            <Play className="size-4 fill-current" style={{ marginLeft: 2 }} />
+          </button>
+        )}
+        <button type="button" onClick={onStepForward} disabled={isPlaying} className={`${vcrBtn} disabled:opacity-40`}>
+          <SkipForward className="size-4" />
+        </button>
+        <button type="button" onClick={onStop} className={vcrBtn}>
+          <Square className="size-4 fill-current" />
+        </button>
+        <div className="mx-0.5 h-5 w-px bg-line-strong" />
+        <div className="flex rounded-lg border border-line bg-well p-0.5">
+          {[0.5, 1, 2].map((s) => (
             <button
-              onClick={onStepForward}
-              disabled={isPlaying}
-              className="flex items-center justify-center w-10 h-10 rounded-xl bg-white/5 border border-white/10 hover:border-white/30 text-white cursor-pointer hover:bg-white/[0.08] disabled:opacity-40 disabled:cursor-not-allowed transition-all"
-              title="Single Instruction Step"
+              key={s}
+              type="button"
+              onClick={() => onChangeSpeed(s)}
+              className={`rounded px-2 py-1 text-[10px] font-medium ${
+                simulationSpeed === s ? "bg-surface text-accent" : "text-subtle hover:text-fg"
+              }`}
             >
-              <SkipForward className="w-4 h-4" />
+              {s}x
             </button>
-
-            <button
-              onClick={onStop}
-              className="flex items-center justify-center w-10 h-10 rounded-xl bg-white/5 border border-white/10 hover:border-white/30 text-white cursor-pointer hover:bg-white/[0.08] transition-all"
-              title="Halt & Reset VM"
-            >
-              <Square className="w-4 h-4 fill-current text-white/80" />
-            </button>
-
-            <div className="h-6 w-px bg-white/10 mx-1" />
-
-            {/* Speeds selector buttons */}
-            <div className="flex bg-[#0d0e11] p-1 border border-white/5 rounded-lg">
-              {[0.5, 1, 2].map((s) => (
-                <button
-                  key={s}
-                  onClick={() => onChangeSpeed(s)}
-                  className={`px-2.5 py-1 rounded text-[10px] font-mono transition-all cursor-pointer ${
-                    simulationSpeed === s
-                      ? 'bg-white/5 text-[#ff4f12] font-bold'
-                      : 'text-white/40 hover:text-white'
-                  }`}
-                >
-                  {s}x
-                </button>
-              ))}
-            </div>
-          </div>
+          ))}
         </div>
-
-        {/* Forensic Debugger Scrubber slider */}
-        {historySnapshots && historySnapshots.length > 0 && (
-          <div className="bg-[#0d0e11] border border-[#ff4f12]/10 p-3 rounded-xl space-y-2.5">
-            <div className="flex items-center justify-between text-[10px] font-mono">
-              <span className="text-[#ff4f12] font-black flex items-center gap-1.5 uppercase tracking-wider">
-                <Disc className="w-3.5 h-3.5 text-[#ff4f12] animate-pulse" /> Forensic Scrub
-              </span>
-              <span className="text-white/40">
-                Tick {activeSnapshotIndex !== null ? activeSnapshotIndex + 1 : 0} / {historySnapshots.length}
-              </span>
-            </div>
-            
+        {historySnapshots.length > 0 && (
+          <div className="flex min-w-[120px] flex-1 items-center gap-2">
+            <Disc className="size-3.5 shrink-0 text-accent" />
             <input
               type="range"
               min={0}
               max={historySnapshots.length - 1}
               value={activeSnapshotIndex ?? 0}
-              onChange={(e) => onScrubSnapshot && onScrubSnapshot(parseInt(e.target.value))}
+              onChange={(e) => onScrubSnapshot?.(parseInt(e.target.value, 10))}
               disabled={isPlaying}
-              className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-[#ff4f12] disabled:opacity-40 disabled:cursor-not-allowed outline-none"
+              className="w-full accent-[var(--accent)] disabled:opacity-40"
             />
-            
-            <p className="text-[8px] font-mono text-white/30 leading-normal">
-              {isPlaying 
-                ? "Simulating... halt/pause execution to retrospectively scrub variables." 
-                : "Drag slider to roll back variables, call flows, and visual node states."}
-            </p>
           </div>
         )}
-
-        {/* Telemetry diagnostics display */}
-        <div className="bg-[#0d0e11] border border-white/5 p-3 rounded-xl space-y-2">
-          <div className="flex items-center justify-between border-b border-white/5 pb-1.5 mb-1.5">
-            <span className="text-[9px] font-mono text-white/40 uppercase tracking-wider flex items-center gap-1">
-              <Cpu className="w-3 h-3 text-[#ff4f12]" /> VM Diagnostics
-            </span>
-            <span className="flex items-center gap-1 text-[8px] font-mono text-emerald-400">
-              <ShieldCheck className="w-3 h-3" /> SECURE HANDSHAKE
-            </span>
-          </div>
-
-          <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-[10px] font-mono">
-            <div className="flex justify-between">
-              <span className="text-white/35">CPU Cycles:</span>
-              <span className="text-white/85 font-semibold text-right">{telemetry.cpuUsage}%</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-white/35">Mem Heap:</span>
-              <span className="text-white/85 font-semibold text-right">{telemetry.memoryUsage} MB</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-white/35">Renderer:</span>
-              <span className="text-white/85 font-semibold text-right">{telemetry.fps} FPS</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-white/35">Off-thread:</span>
-              <span className="text-white/85 font-semibold text-right">{telemetry.workerDelay}ms</span>
-            </div>
-          </div>
-        </div>
       </div>
 
-      {/* Dynamic compiler telemetry terminal console (Right Side) */}
-      <div className="flex-1 flex flex-col justify-between h-[160px] md:h-full">
-        <div className="flex items-center justify-between border-b border-white/5 pb-2 mb-2">
-          <span className="text-[10px] font-mono uppercase text-white/40 flex items-center gap-1.5">
-            <Terminal className="w-3.5 h-3.5 text-white/40" /> Live VM Compilation & Execution Logs
+      <div className="ide-vcr-logs">
+        <div className="mb-1 flex items-center justify-between">
+          <span className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-subtle">
+            <Terminal className="size-3.5" /> Live VM Logs
           </span>
-          <button
-            onClick={onClearLogs}
-            className="text-[10px] font-mono text-white/30 hover:text-white flex items-center gap-1 cursor-pointer transition-colors"
-          >
-            <Trash2 className="w-3 h-3" /> Clear Console
+          <button type="button" onClick={onClearLogs} className="flex items-center gap-1 text-[10px] text-subtle hover:text-fg">
+            <Trash2 className="size-3" /> Clear
           </button>
         </div>
-
-        <div data-testid="console-log" className="flex-1 overflow-y-auto bg-[#0d0e11] rounded-xl border border-white/5 p-3 font-mono text-[10px] space-y-1.5 timeline-scrollbar select-text selection:bg-[#ff4f12]/20">
+        <div
+          data-testid="console-log"
+          className="min-h-0 flex-1 space-y-1 overflow-y-auto rounded-xl border border-line bg-well p-2 text-[10px] leading-relaxed"
+        >
           {logs.length === 0 ? (
-            <div className="h-full flex items-center justify-center text-white/30 italic text-[9px] gap-1.5 font-serif">
-              <Disc className="w-3.5 h-3.5 animate-spin text-[#ff4f12]/30" />
-              Machine thread online. Press compile and run execution pipeline flowchart...
+            <div className="flex h-full items-center gap-1.5 italic text-subtle">
+              <Disc className="size-3.5 text-accent/40" />
+              Machine thread online. Press run…
             </div>
           ) : (
             logs.map((log) => {
-              let typeColor = 'text-white/60';
-              let tag = 'SYS';
-              if (log.type === 'success') {
-                typeColor = 'text-emerald-400';
-                tag = 'OK ';
-              } else if (log.type === 'error') {
-                typeColor = 'text-rose-400';
-                tag = 'ERR';
-              } else if (log.type === 'api_call') {
-                typeColor = 'text-sky-400';
-                tag = 'API';
+              let typeColor = "text-muted";
+              let tag = "SYS";
+              if (log.type === "success") {
+                typeColor = "text-emerald-600";
+                tag = "OK ";
+              } else if (log.type === "error") {
+                typeColor = "text-rose-600";
+                tag = "ERR";
+              } else if (log.type === "api_call") {
+                typeColor = "text-sky-600";
+                tag = "API";
               }
-
               return (
-                <div key={log.id} className="flex gap-2 items-start leading-relaxed border-b border-white/[0.01] pb-1">
-                  <span className="text-white/30 shrink-0 select-none">
-                    {new Date(log.timestamp).toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                <div key={log.id} className="flex items-start gap-2">
+                  <span className="shrink-0 tabular-nums text-subtle">
+                    {new Date(log.timestamp).toLocaleTimeString([], {
+                      hour12: false,
+                      hour: "2-digit",
+                      minute: "2-digit",
+                      second: "2-digit",
+                    })}
                   </span>
-                  <span className={`font-bold shrink-0 select-none ${typeColor}`}>
-                    [{tag}]
-                  </span>
-                  <span className="text-white/80 flex-1 break-all font-mono leading-relaxed">
-                    {log.message}
-                    {log.data && (
-                      <pre className="mt-1 bg-white/[0.02] border border-white/5 p-1.5 rounded text-[9px] text-white/50 max-h-[100px] overflow-auto block whitespace-pre-wrap leading-tight">
-                        {JSON.stringify(log.data, null, 2)}
-                      </pre>
-                    )}
-                  </span>
+                  <span className={`shrink-0 font-semibold ${typeColor}`}>[{tag}]</span>
+                  <span className="min-w-0 flex-1 break-all text-fg">{log.message}</span>
                 </div>
               );
             })
           )}
+        </div>
+      </div>
+
+      <div className="ide-vcr-telemetry">
+        <div className="flex items-center justify-between gap-2 text-[9px] font-semibold uppercase tracking-wider text-subtle">
+          <span className="flex items-center gap-1">
+            <Cpu className="size-3 text-accent" /> VM Diagnostics
+          </span>
+          <span className="flex items-center gap-1 text-emerald-600">
+            <ShieldCheck className="size-3" /> Secure
+          </span>
+        </div>
+        <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[10px]">
+          <div className="flex justify-between gap-2">
+            <span className="text-subtle">CPU</span>
+            <span className="tabular-nums font-semibold text-fg">{telemetry.cpuUsage}%</span>
+          </div>
+          <div className="flex justify-between gap-2">
+            <span className="text-subtle">Mem</span>
+            <span className="tabular-nums font-semibold text-fg">{telemetry.memoryUsage} MB</span>
+          </div>
+          <div className="flex justify-between gap-2">
+            <span className="text-subtle">GPU</span>
+            <span className="tabular-nums font-semibold text-fg">{telemetry.fps} FPS</span>
+          </div>
+          <div className="flex justify-between gap-2">
+            <span className="text-subtle">I/O</span>
+            <span className="tabular-nums font-semibold text-fg">{telemetry.workerDelay}ms</span>
+          </div>
         </div>
       </div>
     </div>

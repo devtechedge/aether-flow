@@ -1,11 +1,19 @@
+/**
+ * @license
+ * SPDX-License-Identifier: MIT
+ */
+
 import { initializeApp, type FirebaseApp } from 'firebase/app';
 import {
   getAuth,
   signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   GoogleAuthProvider,
   onAuthStateChanged,
   type Auth,
   type User,
+  type UserCredential,
 } from 'firebase/auth';
 
 const firebaseConfig = {
@@ -22,6 +30,7 @@ export const firebaseEnabled = Boolean(firebaseConfig.apiKey && firebaseConfig.p
 let app: FirebaseApp | null = null;
 let auth: Auth | null = null;
 const provider = new GoogleAuthProvider();
+provider.setCustomParameters({ prompt: 'select_account' });
 
 const REQUIRED_SCOPES = [
   'https://www.googleapis.com/auth/gmail.readonly',
@@ -42,6 +51,24 @@ let cachedAccessToken: string | null = null;
 
 export { auth };
 
+type TokenBag = {
+  _tokenResponse?: {
+    oauthAccessToken?: string;
+    oauthIdToken?: string;
+  };
+};
+
+async function tokenFromCredential(result: UserCredential): Promise<string> {
+  const credential = GoogleAuthProvider.credentialFromResult(result);
+  const bag = result as UserCredential & TokenBag;
+  const fromOauth =
+    credential?.accessToken ||
+    bag._tokenResponse?.oauthAccessToken ||
+    '';
+  if (fromOauth) return fromOauth;
+  return result.user.getIdToken();
+}
+
 export const initAuth = (
   onAuthSuccess?: (user: User, token: string) => void,
   onAuthFailure?: () => void
@@ -51,11 +78,23 @@ export const initAuth = (
     return () => {};
   }
 
+  void getRedirectResult(auth)
+    .then(async (result) => {
+      if (!result) return;
+      cachedAccessToken = await tokenFromCredential(result);
+      onAuthSuccess?.(result.user, cachedAccessToken);
+    })
+    .catch(() => {
+      /* no pending redirect, or user cancelled */
+    });
+
   return onAuthStateChanged(auth, async (user: User | null) => {
-    if (user && cachedAccessToken) {
-      onAuthSuccess?.(user, cachedAccessToken);
+    if (user) {
+      const token = cachedAccessToken || (await user.getIdToken());
+      cachedAccessToken = token;
+      onAuthSuccess?.(user, token);
     } else {
-      if (!user) cachedAccessToken = null;
+      cachedAccessToken = null;
       onAuthFailure?.();
     }
   });
@@ -63,18 +102,35 @@ export const initAuth = (
 
 export const googleSignIn = async (): Promise<{ user: User; accessToken: string } | null> => {
   if (!auth) {
-    throw new Error('Firebase is not configured. Workspace nodes run in mock mode.');
+    throw new Error(
+      'Google sign-in is not configured on this deployment. Set VITE_FIREBASE_API_KEY and VITE_FIREBASE_PROJECT_ID, then redeploy.'
+    );
   }
-  const result = await signInWithPopup(auth, provider);
-  const credential = GoogleAuthProvider.credentialFromResult(result);
-  if (!credential?.accessToken) {
-    throw new Error('Failed to get access token from Google Auth');
+
+  try {
+    const result = await signInWithPopup(auth, provider);
+    cachedAccessToken = await tokenFromCredential(result);
+    return { user: result.user, accessToken: cachedAccessToken };
+  } catch (err: unknown) {
+    const code = typeof err === 'object' && err && 'code' in err ? String((err as { code?: string }).code) : '';
+    const popupBlocked =
+      code === 'auth/popup-blocked' ||
+      code === 'auth/cancelled-popup-request' ||
+      code === 'auth/operation-not-supported-in-this-environment';
+    if (popupBlocked) {
+      await signInWithRedirect(auth, provider);
+      return null;
+    }
+    throw err;
   }
-  cachedAccessToken = credential.accessToken;
-  return { user: result.user, accessToken: cachedAccessToken };
 };
 
-export const getAccessToken = async (): Promise<string | null> => cachedAccessToken;
+export const getAccessToken = async (): Promise<string | null> => {
+  if (cachedAccessToken) return cachedAccessToken;
+  if (!auth?.currentUser) return null;
+  cachedAccessToken = await auth.currentUser.getIdToken();
+  return cachedAccessToken;
+};
 
 export const logout = async () => {
   if (auth) await auth.signOut();
