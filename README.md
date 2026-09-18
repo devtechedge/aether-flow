@@ -18,7 +18,7 @@ Local-first visual flowchart IDE. Drag nodes onto a custom pan/zoom canvas, comp
 
 Do **not** use https://aether-flow.vercel.app - that hostname is paused and is not this project.
 
-> **Status:** The live site is a **client-side demo**. Graphs persist in `localStorage`. Gmail / Drive / Docs nodes use mock payloads unless you sign in locally with Firebase env vars. Gemini calls hit `/api/gemini/generate` and fall back to a canned reply when `GEMINI_API_KEY` is unset.
+> **Status:** The live site is a **client-side demo**. Graphs persist in `localStorage`. Sign in with Google to link Gmail / Drive / Docs; unsigned runs use mock Workspace payloads. Gemini calls hit `/api/gemini/generate` and fall back to a canned reply when `GEMINI_API_KEY` is unset.
 
 This is the **only** public repo for the project.
 
@@ -48,7 +48,7 @@ This is the **only** public repo for the project.
 - Graph compiler: start/end checks, dangling edges, self-loop reject
 - Step simulator with VCR controls and snapshot scrubber
 - Local branch / commit ledger on `localStorage` plus a visual added / modified / ghost-deleted overlay
-- Optional Gemini proxy and Google Workspace nodes; public demo stays mock
+- Optional Gemini proxy and Google Workspace nodes. Sign in with Google on the live demo to use your inbox, Drive, and Docs; unsigned runs stay on mock payloads.
 
 ---
 
@@ -59,7 +59,7 @@ This is the **only** public repo for the project.
 | Frontend | React 19, Vite 6, TypeScript, Tailwind 4 |
 | Canvas | SVG + DOM cards, quadtree cull |
 | Persistence | `localStorage` (not IndexedDB) |
-| Auth | Optional Firebase Google popup - mock mode by default |
+| Auth | Firebase Google popup on the live demo. Workspace scopes requested at sign-in. Unsigned runs stay mock. |
 | AI | Optional `POST /api/gemini/generate` (Gemini 2.5). Mock fallback on Vercel |
 | Local server | Express + Vite middleware (`tsx server.ts`) |
 | Hosting | Vercel (static Vite + serverless `/api`) |
@@ -77,7 +77,7 @@ cp .env.example .env
 npm run dev
 ```
 
-Open **http://localhost:3000**. Gemini and Google sign-in are optional - the default pipeline runs on mock data.
+Open **http://localhost:3000**. Google sign-in works on localhost. Gemini is optional - the default pipeline runs on mock data without a key.
 
 ```bash
 npm test
@@ -90,7 +90,7 @@ npm run test:e2e
 
 ## Security
 
-Portfolio demo: **no login** on the public site. Logic nodes evaluate short expressions with `Function` in the visitor's own browser. The Gemini key, when present, stays on the server.
+Portfolio demo: Google sign-in is available on the public site. Graphs stay in the visitor's `localStorage`. Logic nodes evaluate short expressions with `Function` in the visitor's own browser. The Gemini key, when present, stays on the server.
 
 Details: **[SECURITY.md](SECURITY.md)**.
 

@@ -1,8 +1,8 @@
 # Security Assessment - AetherFlow
 
-**Date:** 2026-09-06  
+**Date:** 2026-09-18  
 **Scope:** Auth, XSS, injection, CORS, secrets, third-party APIs  
-**Context:** Public deploy is a **client-side flowchart IDE** (Vercel). Gemini and Google Workspace are **optional**. Unsigned graphs run in the visitor's browser with mock payloads.
+**Context:** Public deploy is a **client-side flowchart IDE** (Vercel). Gemini is optional. Google sign-in is on for Workspace nodes. Unsigned graphs run in the visitor's browser with mock payloads.
 
 ---
 
@@ -10,16 +10,16 @@
 
 | Area | Risk | Notes |
 |------|------|--------|
-| Authentication | **Optional (accepted)** | Google sign-in is off unless Firebase env vars are set. Public demo is mock-mode. |
+| Authentication | **Optional (accepted)** | Google popup is on for the public demo. Graphs do not require an account. |
 | Authorization | **N/A on Vercel** | No multi-tenant backend. Graphs live in `localStorage`. |
 | XSS | **Low** | No `dangerouslySetInnerHTML`. Node labels and logs render as React text. |
-| Code execution | **Accepted residual** | Logic nodes use `new Function` **in the visitor's browser** on graph JSON they control. |
+| Code execution | **Accepted residual** | Logic nodes use `new Function` **in the visitor's own browser** on graph JSON they control. |
 | Injection (SQL) | **N/A** | No database. Persistence is `localStorage`. |
-| Secrets in repo | **Hardened this pass** | Live Firebase applet config removed. `.env*` gitignored. |
+| Secrets in repo | **Accepted residual** | Firebase **web** API key is public by design (domain + referrer restricted). `.env*` gitignored. |
 | CORS | **N/A** | Same-origin Vite app + `/api/gemini/generate`. |
 | Payments | **N/A** | No payments. |
 
-**Overall (public Vercel demo):** Low residual risk - mock Workspace/Gemini, no backend secrets required, no auth boundary to break.
+**Overall (public Vercel demo):** Low residual risk - Google sign-in is a Workspace connector, not an app account wall. Graphs stay in `localStorage`. Gemini key stays server-side when set.
 
 **Overall (if Gemini + Google Workspace keys are live):** Medium - the Gemini proxy must stay server-side; Google OAuth tokens stay in memory; logic-node `Function` is still not a sandbox.
 
@@ -28,11 +28,12 @@
 ## 1. Authentication & session
 
 **Findings**
-- Public demo does **not** require login.
-- Optional Google popup (`src/lib/firebase.ts`) requests Gmail / Drive / Docs scopes only when `VITE_FIREBASE_*` is configured.
-- Access tokens are held in a module-level variable. They are not written to `localStorage`.
+- Public demo does **not** require login to draw or run graphs.
+- Google popup (`src/lib/firebase.ts`) requests Gmail / Drive / Docs scopes so Workspace nodes can call the visitor's APIs.
+- The analog-compiler-6n50x **web** API key ships in the client. It is not a service-account secret. Sign-in still requires the page origin to be in Firebase **authorized domains**.
+- Access tokens are held in a module-level variable. They are not written to `localStorage`. Firebase ID tokens are never sent as Gmail Bearers.
 
-**Verdict:** Do not claim Firebase Auth as a production identity layer. It is an optional Workspace connector.
+**Verdict:** Do not claim Firebase Auth as a production identity layer. It is a Workspace connector. `localhost` is implicit; `aetherflow-ide.vercel.app` must be listed under [Authorized domains](https://console.firebase.google.com/project/analog-compiler-6n50x/authentication/settings).
 
 ---
 
@@ -79,8 +80,8 @@ Do not put the key in `VITE_*` - it would leak to the browser.
 ## 6. Secrets & config
 
 - `.gitignore` excludes `.env`, `.env.*`.
-- `.env.example` has empty placeholders only.
-- `firebase-applet-config.json` (AI Studio dump with a live web API key) **removed**.
+- `.env.example` documents optional `VITE_FIREBASE_*` overrides for forks.
+- The analog-compiler-6n50x web client config is committed. Firebase documents web API keys as public; restrict them with authorized domains and HTTP referrers, not by deleting the config (empty `VITE_*` at build time disabled sign-in on Vercel).
 - Graph snapshots persist to `localStorage` keys `aetherflow_*`. They never leave the browser on Vercel.
 
 ---
@@ -103,10 +104,11 @@ Do **not** run `npm audit fix --force`.
 ## 8. Residual risk & acceptance
 
 **Accepted for portfolio demo**
-- No login on the public site.
-- Mock Gemini / Workspace payloads.
+- Login is optional; graphs run without an account.
+- Mock Gemini / Workspace payloads when unsigned or when the Gemini key is unset.
 - In-browser `Function` for logic nodes the user authors.
 - Randomised telemetry meters (not real hardware counters).
+- Public Firebase web API key, gated by authorized domains.
 
 **Not accepted if this becomes a hosted multi-user IDE**
 - Unsigned `localStorage` graphs as the source of `Function` calls.
