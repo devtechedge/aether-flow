@@ -9,7 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ## [Unreleased]
 
 ### Changed
-- Public Vercel demo ships the analog-compiler-6n50x Firebase web client config so Sign in with Google initializes without `VITE_FIREBASE_*` build env.
+- Public Vercel demo ships the speedy-equator-122704 Firebase web client config so Sign in with Google initializes without `VITE_FIREBASE_*` build env.
 - Google Workspace nodes still use mock payloads until the visitor completes Google sign-in and grants Gmail / Drive / Docs scopes.
 - Auth errors for `auth/unauthorized-domain` point at Firebase authorized-domain settings.
 

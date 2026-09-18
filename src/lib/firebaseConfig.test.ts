@@ -9,7 +9,7 @@ import {
 } from './firebaseConfig';
 
 describe('firebaseConfig', () => {
-  it('ships a complete analog-compiler web client config', () => {
+  it('ships a complete production web client config', () => {
     expect(firebaseEnabled).toBe(true);
     expect(firebaseConfig.projectId).toBe(FIREBASE_PROJECT_ID);
     expect(firebaseConfig.apiKey.startsWith('AIza')).toBe(true);
@@ -30,7 +30,7 @@ describe('firebaseConfig', () => {
 
 describe('originMatchesAuthorizedDomain', () => {
   const domains = [
-    'analog-compiler-6n50x.firebaseapp.com',
+    'speedy-equator-122704.firebaseapp.com',
     'aetherflow-ide.vercel.app',
   ];
 
@@ -41,7 +41,7 @@ describe('originMatchesAuthorizedDomain', () => {
 
   it('matches an exact host and a parent-domain suffix', () => {
     expect(originMatchesAuthorizedDomain('aetherflow-ide.vercel.app', domains)).toBe(true);
-    expect(originMatchesAuthorizedDomain('analog-compiler-6n50x.firebaseapp.com', domains)).toBe(
+    expect(originMatchesAuthorizedDomain('speedy-equator-122704.firebaseapp.com', domains)).toBe(
       true
     );
     expect(

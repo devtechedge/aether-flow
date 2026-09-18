@@ -30,10 +30,10 @@
 **Findings**
 - Public demo does **not** require login to draw or run graphs.
 - Google popup (`src/lib/firebase.ts`) requests Gmail / Drive / Docs scopes so Workspace nodes can call the visitor's APIs.
-- The analog-compiler-6n50x **web** API key ships in the client. It is not a service-account secret. Sign-in still requires the page origin to be in Firebase **authorized domains**.
+- The speedy-equator-122704 **web** API key ships in the client. It is not a service-account secret. Sign-in still requires the page origin to be in Firebase **authorized domains**.
 - Access tokens are held in a module-level variable. They are not written to `localStorage`. Firebase ID tokens are never sent as Gmail Bearers.
 
-**Verdict:** Do not claim Firebase Auth as a production identity layer. It is a Workspace connector. `localhost` is implicit; `aetherflow-ide.vercel.app` must be listed under [Authorized domains](https://console.firebase.google.com/project/analog-compiler-6n50x/authentication/settings).
+**Verdict:** Do not claim Firebase Auth as a production identity layer. It is a Workspace connector. `localhost` is implicit; `aetherflow-ide.vercel.app` must be listed under [Authorized domains](https://console.firebase.google.com/project/speedy-equator-122704/authentication/settings).
 
 ---
 
@@ -81,7 +81,7 @@ Do not put the key in `VITE_*` - it would leak to the browser.
 
 - `.gitignore` excludes `.env`, `.env.*`.
 - `.env.example` documents optional `VITE_FIREBASE_*` overrides for forks.
-- The analog-compiler-6n50x web client config is committed. Firebase documents web API keys as public; restrict them with authorized domains and HTTP referrers, not by deleting the config (empty `VITE_*` at build time disabled sign-in on Vercel).
+- The speedy-equator-122704 web client config is committed. Firebase documents web API keys as public; restrict them with authorized domains and HTTP referrers, not by deleting the config (empty `VITE_*` at build time disabled sign-in on Vercel).
 - Graph snapshots persist to `localStorage` keys `aetherflow_*`. They never leave the browser on Vercel.
 
 ---

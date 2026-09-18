@@ -2,12 +2,13 @@
  * @license
  * SPDX-License-Identifier: MIT
  *
- * Web client config for analog-compiler-6n50x. Firebase web API keys are
- * public by design and restricted by authorized domains + HTTP referrers.
- * Env vars override the defaults so a fork can point at another project.
+ * Web client config for speedy-equator-122704, the Firebase project that
+ * serves the live IDE. Web API keys are public by design and restricted by
+ * authorized domains + HTTP referrers. Env vars override the defaults so a
+ * fork can point at another project.
  */
 
-export const FIREBASE_PROJECT_ID = 'analog-compiler-6n50x';
+export const FIREBASE_PROJECT_ID = 'speedy-equator-122704';
 
 export const FIREBASE_CONSOLE_AUTH_SETTINGS =
   `https://console.firebase.google.com/project/${FIREBASE_PROJECT_ID}/authentication/settings`;
@@ -20,12 +21,12 @@ export const PRODUCTION_AUTH_HOSTS = [
 ] as const;
 
 const DEFAULTS = {
-  apiKey: 'AIzaSyD4kZsJXYqyi6491Uphd6iu453nkKUpFvg',
-  authDomain: 'analog-compiler-6n50x.firebaseapp.com',
+  apiKey: 'AIzaSyB3z_YmJumc4BI7ZqYgraohrgMg2yst-n4',
+  authDomain: 'speedy-equator-122704.firebaseapp.com',
   projectId: FIREBASE_PROJECT_ID,
-  storageBucket: 'analog-compiler-6n50x.firebasestorage.app',
-  messagingSenderId: '173557141563',
-  appId: '1:173557141563:web:c400f35f4f3e23c618cc1e',
+  storageBucket: 'speedy-equator-122704.firebasestorage.app',
+  messagingSenderId: '532871355636',
+  appId: '1:532871355636:web:3baa627ac3298a13a012a1',
 } as const;
 
 function pick(value: string | undefined, fallback: string): string {
