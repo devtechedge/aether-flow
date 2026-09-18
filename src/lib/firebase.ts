@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: MIT
  */
 
-import { initializeApp, type FirebaseApp } from 'firebase/app';
+import { initializeApp, getApps, getApp, type FirebaseApp } from 'firebase/app';
 import {
   getAuth,
   signInWithPopup,
@@ -15,41 +15,30 @@ import {
   type User,
   type UserCredential,
 } from 'firebase/auth';
+import {
+  FIREBASE_CONSOLE_AUTH_SETTINGS,
+  firebaseConfig,
+  firebaseEnabled,
+  GOOGLE_SCOPES,
+  originMatchesAuthorizedDomain,
+} from './firebaseConfig';
 
-const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || '',
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || '',
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || '',
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || '',
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || '',
-  appId: import.meta.env.VITE_FIREBASE_APP_ID || '',
-};
+export { firebaseEnabled, FIREBASE_CONSOLE_AUTH_SETTINGS, originMatchesAuthorizedDomain };
 
-export const firebaseEnabled = Boolean(firebaseConfig.apiKey && firebaseConfig.projectId);
+const provider = new GoogleAuthProvider();
+provider.setCustomParameters({ prompt: 'select_account' });
+GOOGLE_SCOPES.forEach((scope) => provider.addScope(scope));
 
 let app: FirebaseApp | null = null;
 let auth: Auth | null = null;
-const provider = new GoogleAuthProvider();
-provider.setCustomParameters({ prompt: 'select_account' });
 
-const REQUIRED_SCOPES = [
-  'https://www.googleapis.com/auth/gmail.readonly',
-  'https://www.googleapis.com/auth/gmail.send',
-  'https://www.googleapis.com/auth/gmail.compose',
-  'https://www.googleapis.com/auth/drive.file',
-  'https://www.googleapis.com/auth/documents',
-];
-
-REQUIRED_SCOPES.forEach((scope) => provider.addScope(scope));
-
-if (firebaseEnabled) {
-  app = initializeApp(firebaseConfig);
+function getFirebaseAuth(): Auth | null {
+  if (!firebaseEnabled) return null;
+  if (auth) return auth;
+  app = getApps().length ? getApp() : initializeApp(firebaseConfig);
   auth = getAuth(app);
+  return auth;
 }
-
-let cachedAccessToken: string | null = null;
-
-export { auth };
 
 type TokenBag = {
   _tokenResponse?: {
@@ -58,81 +47,130 @@ type TokenBag = {
   };
 };
 
-async function tokenFromCredential(result: UserCredential): Promise<string> {
+let cachedGoogleAccessToken: string | null = null;
+
+function googleAccessTokenFrom(result: UserCredential): string | null {
   const credential = GoogleAuthProvider.credentialFromResult(result);
   const bag = result as UserCredential & TokenBag;
-  const fromOauth =
-    credential?.accessToken ||
-    bag._tokenResponse?.oauthAccessToken ||
-    '';
-  if (fromOauth) return fromOauth;
-  return result.user.getIdToken();
+  return credential?.accessToken || bag._tokenResponse?.oauthAccessToken || null;
+}
+
+export function formatAuthError(err: unknown): string {
+  const code =
+    typeof err === 'object' && err && 'code' in err ? String((err as { code?: string }).code) : '';
+  const message =
+    typeof err === 'object' && err && 'message' in err
+      ? String((err as { message?: string }).message)
+      : String(err || 'Unknown auth error');
+
+  if (code === 'auth/unauthorized-domain' || /unauthorized-domain/i.test(message)) {
+    const host = typeof window !== 'undefined' ? window.location.hostname : 'this host';
+    return (
+      `Google blocked ${host}. Add it under Authorized domains, then retry. ` +
+      FIREBASE_CONSOLE_AUTH_SETTINGS
+    );
+  }
+  if (code === 'auth/popup-closed-by-user') {
+    return 'Google sign-in was closed before completing.';
+  }
+  if (code === 'auth/cancelled-popup-request') {
+    return 'Google sign-in was cancelled.';
+  }
+  if (code === 'auth/account-exists-with-different-credential') {
+    return 'That Google account is already linked with a different sign-in method.';
+  }
+  if (code === 'auth/network-request-failed') {
+    return 'Network error during Google sign-in. Check connectivity and retry.';
+  }
+  return message.replace(/^Firebase:\s*/i, '').replace(/\s*\([^)]*\)\s*$/, '').trim() || message;
+}
+
+async function assertAuthorizedOrigin(): Promise<void> {
+  if (typeof window === 'undefined') return;
+  const host = window.location.hostname;
+  try {
+    const res = await fetch(
+      `https://identitytoolkit.googleapis.com/v1/projects?key=${encodeURIComponent(firebaseConfig.apiKey)}`
+    );
+    if (!res.ok) return;
+    const data = (await res.json()) as { authorizedDomains?: string[] };
+    if (!originMatchesAuthorizedDomain(host, data.authorizedDomains || [])) {
+      const err = new Error('unauthorized-domain') as Error & { code: string };
+      err.code = 'auth/unauthorized-domain';
+      throw err;
+    }
+  } catch (err) {
+    const code =
+      typeof err === 'object' && err && 'code' in err ? String((err as { code?: string }).code) : '';
+    if (code === 'auth/unauthorized-domain') throw err;
+  }
 }
 
 export const initAuth = (
-  onAuthSuccess?: (user: User, token: string) => void,
+  onAuthSuccess?: (user: User, googleAccessToken: string | null) => void,
   onAuthFailure?: () => void
 ) => {
-  if (!auth) {
+  const currentAuth = getFirebaseAuth();
+  if (!currentAuth) {
     onAuthFailure?.();
     return () => {};
   }
 
-  void getRedirectResult(auth)
-    .then(async (result) => {
+  void getRedirectResult(currentAuth)
+    .then((result) => {
       if (!result) return;
-      cachedAccessToken = await tokenFromCredential(result);
-      onAuthSuccess?.(result.user, cachedAccessToken);
+      cachedGoogleAccessToken = googleAccessTokenFrom(result);
+      onAuthSuccess?.(result.user, cachedGoogleAccessToken);
     })
     .catch(() => {
       /* no pending redirect, or user cancelled */
     });
 
-  return onAuthStateChanged(auth, async (user: User | null) => {
+  return onAuthStateChanged(currentAuth, (user: User | null) => {
     if (user) {
-      const token = cachedAccessToken || (await user.getIdToken());
-      cachedAccessToken = token;
-      onAuthSuccess?.(user, token);
+      onAuthSuccess?.(user, cachedGoogleAccessToken);
     } else {
-      cachedAccessToken = null;
+      cachedGoogleAccessToken = null;
       onAuthFailure?.();
     }
   });
 };
 
-export const googleSignIn = async (): Promise<{ user: User; accessToken: string } | null> => {
-  if (!auth) {
-    throw new Error(
-      'Google sign-in is not configured on this deployment. Set VITE_FIREBASE_API_KEY and VITE_FIREBASE_PROJECT_ID, then redeploy.'
-    );
+export const googleSignIn = async (): Promise<{
+  user: User;
+  accessToken: string | null;
+} | null> => {
+  const currentAuth = getFirebaseAuth();
+  if (!currentAuth) {
+    throw new Error('Google sign-in is not configured.');
   }
 
+  await assertAuthorizedOrigin();
+
   try {
-    const result = await signInWithPopup(auth, provider);
-    cachedAccessToken = await tokenFromCredential(result);
-    return { user: result.user, accessToken: cachedAccessToken };
+    const result = await signInWithPopup(currentAuth, provider);
+    cachedGoogleAccessToken = googleAccessTokenFrom(result);
+    return { user: result.user, accessToken: cachedGoogleAccessToken };
   } catch (err: unknown) {
-    const code = typeof err === 'object' && err && 'code' in err ? String((err as { code?: string }).code) : '';
+    const code =
+      typeof err === 'object' && err && 'code' in err ? String((err as { code?: string }).code) : '';
     const popupBlocked =
       code === 'auth/popup-blocked' ||
-      code === 'auth/cancelled-popup-request' ||
       code === 'auth/operation-not-supported-in-this-environment';
     if (popupBlocked) {
-      await signInWithRedirect(auth, provider);
+      await signInWithRedirect(currentAuth, provider);
       return null;
     }
-    throw err;
+    throw new Error(formatAuthError(err));
   }
 };
 
 export const getAccessToken = async (): Promise<string | null> => {
-  if (cachedAccessToken) return cachedAccessToken;
-  if (!auth?.currentUser) return null;
-  cachedAccessToken = await auth.currentUser.getIdToken();
-  return cachedAccessToken;
+  return cachedGoogleAccessToken;
 };
 
 export const logout = async () => {
-  if (auth) await auth.signOut();
-  cachedAccessToken = null;
+  const currentAuth = getFirebaseAuth();
+  if (currentAuth) await currentAuth.signOut();
+  cachedGoogleAccessToken = null;
 };

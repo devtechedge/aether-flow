@@ -20,7 +20,7 @@ import NodeInspector from './components/Inspector/NodeInspector';
 import VersionControl from './components/Sidebar/VersionControl';
 import TimeTravelScrubber from './components/Timeline/TimeTravelScrubber';
 import ThemeToggle from './components/ThemeToggle';
-import { initAuth, googleSignIn, logout, firebaseEnabled } from './lib/firebase';
+import { initAuth, googleSignIn, logout, firebaseEnabled, formatAuthError } from './lib/firebase';
 import ViewportLock from './components/ViewportLock';
 import { compileGraph, nextEdge } from './utils/graphCompile';
 import { interpolateTemplate } from './utils/interpolate';
@@ -193,7 +193,11 @@ export default function App() {
         setUser(authUser);
         setAccessToken(token);
         setAuthLoading(false);
-        addLog('success', `Google Authentication handshake successful. Core Workspace APIs linked.`);
+        if (token) {
+          addLog('success', `Signed in as ${authUser.displayName || authUser.email || 'Google user'}. Workspace APIs linked.`);
+        } else {
+          addLog('info', `Signed in as ${authUser.displayName || authUser.email || 'Google user'}. Click Sign in with Google again to grant Gmail / Drive / Docs.`);
+        }
       },
       () => {
         setUser(null);
@@ -271,7 +275,7 @@ export default function App() {
   // Google sign in / sign out click triggers
   const handleSignIn = async () => {
     if (!firebaseEnabled) {
-      addLog('error', 'Google sign-in is not configured on this deployment. Set VITE_FIREBASE_* env vars on Vercel and redeploy.');
+      addLog('error', 'Google sign-in is not configured.');
       return;
     }
     try {
@@ -280,12 +284,16 @@ export default function App() {
       if (result) {
         setUser(result.user);
         setAccessToken(result.accessToken);
-        addLog('success', `Welcome ${result.user.displayName}! Access token compiled and loaded.`);
+        if (result.accessToken) {
+          addLog('success', `Welcome ${result.user.displayName || result.user.email || 'Google user'}. Gmail / Drive / Docs linked.`);
+        } else {
+          addLog('info', `Welcome ${result.user.displayName || result.user.email || 'Google user'}. Workspace scopes were not granted; nodes will stay on mock data.`);
+        }
       } else {
         addLog('info', 'Continuing Google sign-in in this window…');
       }
-    } catch (err: any) {
-      addLog('error', `Authentication flow aborted: ${err.message || err}`);
+    } catch (err: unknown) {
+      addLog('error', formatAuthError(err));
     }
   };
 
@@ -1006,6 +1014,7 @@ export default function App() {
           ) : (
             <button
               type="button"
+              data-testid="google-signin"
               onClick={handleSignIn}
               className="flex items-center gap-2 rounded-xl bg-accent px-4 py-2 text-xs font-semibold text-accent-fg hover:opacity-90"
             >
