@@ -70,6 +70,68 @@ export default function GraphCanvas({
   panRef.current = pan;
   nodesRef.current = nodes;
 
+
+  const fitNodesInView = (animatePad = 56) => {
+    const el = containerRef.current;
+    if (!el) return;
+    const list = nodesRef.current;
+    if (list.length === 0) return;
+    const viewW = el.clientWidth;
+    const viewH = el.clientHeight;
+    if (viewW < 40 || viewH < 40) return;
+
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    for (const n of list) {
+      const w = n.width || 180;
+      const h = n.height || 90;
+      minX = Math.min(minX, n.x);
+      minY = Math.min(minY, n.y);
+      maxX = Math.max(maxX, n.x + w);
+      maxY = Math.max(maxY, n.y + h);
+    }
+    const contentW = Math.max(maxX - minX, 1);
+    const contentH = Math.max(maxY - minY, 1);
+    const zoomX = (viewW - animatePad * 2) / contentW;
+    const zoomY = (viewH - animatePad * 2) / contentH;
+    // Fit everything; never zoom in past 100% on auto-fit
+    const nextZoom = Math.max(0.25, Math.min(1, zoomX, zoomY));
+    const nextPan = {
+      x: (viewW - contentW * nextZoom) / 2 - minX * nextZoom,
+      y: (viewH - contentH * nextZoom) / 2 - minY * nextZoom,
+    };
+    zoomRef.current = nextZoom;
+    panRef.current = nextPan;
+    setZoom(nextZoom);
+    setPan(nextPan);
+  };
+
+  // Fit once the canvas has a real size (fresh load / layout settle)
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    let fitted = false;
+    const tryFit = () => {
+      if (fitted) return;
+      if (el.clientWidth < 40 || el.clientHeight < 40) return;
+      fitted = true;
+      fitNodesInView();
+    };
+    tryFit();
+    const ro = new ResizeObserver(() => tryFit());
+    ro.observe(el);
+    const t = window.setTimeout(tryFit, 50);
+    return () => {
+      ro.disconnect();
+      window.clearTimeout(t);
+    };
+    // intentionally only on mount — Reset button also calls fitNodesInView
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+
   const onSelectNodeRef = useRef(onSelectNode);
   const onUpdateRef = useRef(onUpdateNodeCoordinates);
   const onAddEdgeRef = useRef(onAddEdge);
@@ -253,35 +315,36 @@ export default function GraphCanvas({
     }
   };
 
+  const beginPan = (event: ReactPointerEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+    capture(event);
+    dragRef.current = {
+      kind: "pan",
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      origX: panRef.current.x,
+      origY: panRef.current.y,
+    };
+    onSelectNodeRef.current(null);
+  };
+
   const handleCanvasPointerDown = (event: ReactPointerEvent) => {
+    // Middle / right / space-drag always pans
     if (event.button === 2 || event.button === 1 || spaceHeld.current) {
-      event.preventDefault();
-      capture(event);
-      dragRef.current = {
-        kind: "pan",
-        pointerId: event.pointerId,
-        startX: event.clientX,
-        startY: event.clientY,
-        origX: panRef.current.x,
-        origY: panRef.current.y,
-      };
-      onSelectNodeRef.current(null);
+      beginPan(event);
       return;
     }
     if (event.button !== 0) return;
     const target = event.target as HTMLElement;
-    if (target === containerRef.current || target.classList.contains("canvas-grid") || target.dataset.canvasBg === "true") {
-      capture(event);
-      dragRef.current = {
-        kind: "pan",
-        pointerId: event.pointerId,
-        startX: event.clientX,
-        startY: event.clientY,
-        origX: panRef.current.x,
-        origY: panRef.current.y,
-      };
-      onSelectNodeRef.current(null);
-    }
+    const onBg =
+      target === containerRef.current ||
+      target.classList.contains("canvas-grid") ||
+      target.dataset.canvasBg === "true" ||
+      !!target.closest?.("[data-canvas-bg='true']");
+    // Left-drag empty canvas (or dedicated pan surface) to pan the view
+    if (onBg) beginPan(event);
   };
 
   const handleNodePointerDown = (event: ReactPointerEvent, node: GraphNode) => {
@@ -388,6 +451,7 @@ export default function GraphCanvas({
       onDrop={handleDrop}
       onContextMenu={(e) => e.preventDefault()}
       className="relative h-full min-h-0 flex-1 cursor-grab overflow-hidden rounded-2xl border border-line bg-deep select-none active:cursor-grabbing"
+      style={{ touchAction: "none" }}
     >
       <div
         data-canvas-bg="true"
@@ -401,6 +465,14 @@ export default function GraphCanvas({
           backgroundSize: `${24 * zoom}px ${24 * zoom}px`,
           backgroundPosition: `${pan.x}px ${pan.y}px`,
         }}
+      />
+
+            {/* Full-bleed pan hit target under nodes/edges */}
+      <div
+        data-canvas-bg="true"
+        data-pan-surface="true"
+        className="absolute inset-0 cursor-grab active:cursor-grabbing"
+        style={{ touchAction: "none" }}
       />
 
       <svg id="connections-canvas" className="pointer-events-none absolute inset-0 h-full w-full">
@@ -597,12 +669,7 @@ export default function GraphCanvas({
         <div className="h-3 w-px shrink-0 bg-line-strong" />
         <button
           type="button"
-          onClick={() => {
-            setZoom(1);
-            setPan({ x: 80, y: 80 });
-            zoomRef.current = 1;
-            panRef.current = { x: 80, y: 80 };
-          }}
+          onClick={() => fitNodesInView()}
           className="shrink-0 text-[10px] font-semibold uppercase tracking-wider hover:text-fg"
         >
           Reset
