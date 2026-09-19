@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { Play, Pause, Square, SkipForward, Cpu, Trash2, ShieldCheck, Terminal, Disc, ChevronUp } from "lucide-react";
 import type { ExecutionSnapshot, LogEntry, TelemetryData } from "../../types";
 
@@ -86,7 +86,7 @@ export default function TimeTravelScrubber({
     };
   }, [maxLogsHeight]);
 
-  const onResizePointerDown = (event: React.PointerEvent<HTMLButtonElement>) => {
+  const onResizePointerDown = (event: ReactPointerEvent<HTMLButtonElement>) => {
     event.preventDefault();
     event.stopPropagation();
     dragRef.current = { startY: event.clientY, startHeight: logsHeight };
