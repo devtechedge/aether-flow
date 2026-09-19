@@ -451,11 +451,65 @@ select.aether-field {
 .ide-vcr-logs {
   grid-column: 1 / -1;
   grid-row: 2;
+  position: relative;
   display: flex;
   min-width: 0;
+  height: var(--vcr-logs-height, 96px);
   min-height: 72px;
-  max-height: 96px;
+  max-height: none;
   flex-direction: column;
+  padding-top: 10px;
+}
+
+.ide-vcr-logs-handle {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  z-index: 5;
+  display: flex;
+  height: 18px;
+  width: 44px;
+  translate: -50% -50%;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--subtle);
+  cursor: ns-resize;
+  touch-action: none;
+  box-shadow: 0 1px 4px rgb(0 0 0 / 12%);
+}
+
+.ide-vcr-logs-handle:hover,
+.ide-vcr-logs-handle:focus-visible {
+  color: var(--accent);
+  border-color: var(--accent);
+  outline: none;
+}
+
+.ide-vcr-logs-handle-icon {
+  width: 14px;
+  height: 14px;
+  animation: ide-vcr-logs-nudge 1.8s ease-in-out infinite;
+}
+
+@keyframes ide-vcr-logs-nudge {
+  0%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.75;
+  }
+  50% {
+    transform: translateY(-2px);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ide-vcr-logs-handle-icon {
+    animation: none;
+  }
 }
 
 .ide-vcr-telemetry {
@@ -546,7 +600,7 @@ select.aether-field {
 @media (min-width: 720px) {
   .ide-vcr {
     grid-template-columns: auto minmax(0, 1fr) minmax(180px, 240px);
-    grid-template-rows: 88px;
+    grid-template-rows: var(--vcr-logs-height, 88px);
     gap: 10px 16px;
     padding: 10px 14px;
   }
@@ -559,6 +613,7 @@ select.aether-field {
   .ide-vcr-logs {
     grid-column: 2;
     grid-row: 1;
+    height: 100%;
     min-height: 0;
     max-height: none;
   }

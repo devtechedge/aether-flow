@@ -1,4 +1,5 @@
-import { Play, Pause, Square, SkipForward, Cpu, Trash2, ShieldCheck, Terminal, Disc } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Play, Pause, Square, SkipForward, Cpu, Trash2, ShieldCheck, Terminal, Disc, ChevronUp } from "lucide-react";
 import type { ExecutionSnapshot, LogEntry, TelemetryData } from "../../types";
 
 interface TimeTravelScrubberProps {
@@ -32,11 +33,77 @@ export default function TimeTravelScrubber({
   activeSnapshotIndex = null,
   onScrubSnapshot,
 }: TimeTravelScrubberProps) {
+  const MIN_LOGS_HEIGHT = 72;
+  const DEFAULT_LOGS_HEIGHT = 88;
+  const storageKey = "aetherflow.liveVmLogsHeight";
+
+  const [logsHeight, setLogsHeight] = useState<number>(() => {
+    if (typeof window === "undefined") return DEFAULT_LOGS_HEIGHT;
+    const raw = window.localStorage.getItem(storageKey);
+    const parsed = raw ? Number(raw) : NaN;
+    return Number.isFinite(parsed) ? parsed : DEFAULT_LOGS_HEIGHT;
+  });
+  const dragRef = useRef<{ startY: number; startHeight: number } | null>(null);
+  const logsRef = useRef<HTMLDivElement | null>(null);
+
+  const maxLogsHeight = useCallback(() => {
+    if (typeof window === "undefined") return 480;
+    // Leave room for header + stage chrome; grow into the canvas area.
+    return Math.max(MIN_LOGS_HEIGHT, Math.floor(window.innerHeight * 0.7));
+  }, []);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(storageKey, String(logsHeight));
+    } catch {
+      /* ignore quota / private mode */
+    }
+  }, [logsHeight]);
+
+  useEffect(() => {
+    const onMove = (event: PointerEvent) => {
+      const drag = dragRef.current;
+      if (!drag) return;
+      // Dragging the top edge upward increases height.
+      const next = Math.min(
+        maxLogsHeight(),
+        Math.max(MIN_LOGS_HEIGHT, drag.startHeight + (drag.startY - event.clientY)),
+      );
+      setLogsHeight(next);
+    };
+    const onUp = () => {
+      dragRef.current = null;
+      document.body.style.removeProperty("cursor");
+      document.body.style.removeProperty("user-select");
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onUp);
+    return () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
+    };
+  }, [maxLogsHeight]);
+
+  const onResizePointerDown = (event: React.PointerEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    dragRef.current = { startY: event.clientY, startHeight: logsHeight };
+    document.body.style.cursor = "ns-resize";
+    document.body.style.userSelect = "none";
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+  };
+
   const vcrBtn =
     "flex size-9 items-center justify-center rounded-xl border border-line bg-well text-fg hover:border-line-strong";
 
   return (
-    <div className="ide-vcr" data-testid="time-travel-scrubber">
+    <div
+      className="ide-vcr"
+      data-testid="time-travel-scrubber"
+      style={{ ["--vcr-logs-height" as string]: `${logsHeight}px` }}
+    >
       <div className="ide-vcr-transport">
         {isPlaying ? (
           <button type="button" onClick={onPause} className={vcrBtn} title="Pause Execution">
@@ -90,7 +157,17 @@ export default function TimeTravelScrubber({
         )}
       </div>
 
-      <div className="ide-vcr-logs">
+      <div className="ide-vcr-logs" ref={logsRef}>
+        <button
+          type="button"
+          data-testid="live-vm-logs-resize"
+          aria-label="Drag to resize Live VM Logs"
+          title="Drag up to see more logs"
+          onPointerDown={onResizePointerDown}
+          className="ide-vcr-logs-handle"
+        >
+          <ChevronUp className="ide-vcr-logs-handle-icon" aria-hidden="true" />
+        </button>
         <div className="mb-1 flex items-center justify-between">
           <span className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-subtle">
             <Terminal className="size-3.5" /> Live VM Logs
