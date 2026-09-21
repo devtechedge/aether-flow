@@ -1016,9 +1016,11 @@ export default function App() {
               type="button"
               data-testid="google-signin"
               onClick={handleSignIn}
-              className="flex items-center gap-2 rounded-xl bg-accent px-4 py-2 text-xs font-semibold text-accent-fg hover:opacity-90"
+              className="flex shrink-0 items-center gap-1.5 rounded-xl bg-accent px-2.5 py-2 text-xs font-semibold text-accent-fg hover:opacity-90 sm:gap-2 sm:px-4"
             >
-              <UserIcon className="size-3.5" /> Sign in with Google
+              <UserIcon className="size-3.5 shrink-0" />
+              <span className="sm:hidden">Sign in</span>
+              <span className="hidden sm:inline">Sign in with Google</span>
             </button>
           )}
           <button
