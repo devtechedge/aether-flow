@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
   FIREBASE_PROJECT_ID,
@@ -8,11 +9,26 @@ import {
   originMatchesAuthorizedDomain,
 } from './firebaseConfig';
 
+function readSource(): string {
+  return readFileSync(new URL('./firebaseConfig.ts', import.meta.url), 'utf8');
+}
+
 describe('firebaseConfig', () => {
-  it('ships a complete production web client config', () => {
-    expect(firebaseEnabled).toBe(true);
+  it('never hardcodes the web API key', () => {
+    // GitHub secret scanning flags any AIza... literal, and the key belongs in
+    // VITE_FIREBASE_API_KEY, not in the repo.
+    expect(readSource()).not.toMatch(/AIza[A-Za-z0-9_-]{10,}/);
+  });
+
+  it('reads the web API key from the environment instead of a fallback', () => {
+    // vitest runs without the env var, so the key is empty and auth stays off.
+    // Production supplies it through Vercel.
+    expect(firebaseConfig.apiKey).toBe('');
+    expect(firebaseEnabled).toBe(false);
+  });
+
+  it('still exposes the public project defaults', () => {
     expect(firebaseConfig.projectId).toBe(FIREBASE_PROJECT_ID);
-    expect(firebaseConfig.apiKey.startsWith('AIza')).toBe(true);
     expect(firebaseConfig.authDomain).toBe(`${FIREBASE_PROJECT_ID}.firebaseapp.com`);
     expect(firebaseConfig.appId).toContain(':web:');
   });

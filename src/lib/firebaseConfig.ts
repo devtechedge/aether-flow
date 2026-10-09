@@ -3,8 +3,9 @@
  * SPDX-License-Identifier: MIT
  *
  * Web client config for speedy-equator-122704, the Firebase project that
- * serves the live IDE. Web API keys are public by design and restricted by
- * authorized domains + HTTP referrers. Env vars override the defaults so a
+ * serves the live IDE. The web API key is read from VITE_FIREBASE_API_KEY and
+ * is never hardcoded here, so the repo stays out of GitHub secret scanning.
+ * The remaining values are public project identifiers and act as defaults so a
  * fork can point at another project.
  */
 
@@ -21,7 +22,6 @@ export const PRODUCTION_AUTH_HOSTS = [
 ] as const;
 
 const DEFAULTS = {
-  apiKey: 'AIzaSyB3z_YmJumc4BI7ZqYgraohrgMg2yst-n4',
   authDomain: 'speedy-equator-122704.firebaseapp.com',
   projectId: FIREBASE_PROJECT_ID,
   storageBucket: 'speedy-equator-122704.firebasestorage.app',
@@ -35,7 +35,7 @@ function pick(value: string | undefined, fallback: string): string {
 }
 
 export const firebaseConfig = {
-  apiKey: pick(import.meta.env.VITE_FIREBASE_API_KEY, DEFAULTS.apiKey),
+  apiKey: pick(import.meta.env.VITE_FIREBASE_API_KEY, ''),
   authDomain: pick(import.meta.env.VITE_FIREBASE_AUTH_DOMAIN, DEFAULTS.authDomain),
   projectId: pick(import.meta.env.VITE_FIREBASE_PROJECT_ID, DEFAULTS.projectId),
   storageBucket: pick(import.meta.env.VITE_FIREBASE_STORAGE_BUCKET, DEFAULTS.storageBucket),
